@@ -28,7 +28,7 @@ namespace OuterHeavenBot
             this.options = options;
          
         }
-        public async Task Initialize()
+        public async Task<DiscordSocketClient> Initialize()
         {        
             var startTasks = new List<Task>()
             {
@@ -36,8 +36,8 @@ namespace OuterHeavenBot
                 commandHandler.InstallCommandsAsync()
             };
 
-            await Task.WhenAll(startTasks);  
-            
+            await Task.WhenAll(startTasks);
+            return this.client;
         }
         private async Task StartClient()
         {

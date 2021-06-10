@@ -1,12 +1,15 @@
 ﻿using Discord;
 using Discord.Audio;
+using Discord.Audio.Streams;
 using Discord.Commands;
+using OuterHeavenBot.Audio;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OuterHeavenBot.Modules
@@ -14,9 +17,11 @@ namespace OuterHeavenBot.Modules
    public class Commands: ModuleBase<SocketCommandContext>
     {
         private Random random;
-        public Commands(Random random)
+        private AudioManager audioManager;
+        public Commands(Random random, AudioManager audioManager)
         {
             this.random = random;
+            this.audioManager = audioManager;
         }
 
         [Summary("Lists available commands")]
@@ -64,12 +69,12 @@ namespace OuterHeavenBot.Modules
 
         //todo fix variable names for argument/argument mutations.
         //we can be more specific no that we know what this command will do.
-        [Command("play", RunMode = RunMode.Async)]
+        [Command("play",RunMode = RunMode.Async)]
         [Alias("p")]
         public async Task Play(string argument = null)
         {
             var channel = (Context.User as IGuildUser)?.VoiceChannel;
-            if (channel == null) { await Context.Channel.SendMessageAsync("User must be in a voice channel, or a voice channel must be passed as an argument."); return; }
+            if (channel == null) { await Context.Channel.SendMessageAsync("User must be in a voice channel."); return; }
 
             var fileDirectories = await GetAudioFiles();
             var availableFiles = fileDirectories.SelectMany(x => x.Value).Select(x => x.FullName).ToList();
@@ -78,13 +83,9 @@ namespace OuterHeavenBot.Modules
             var argumentMutation = "";
             if (string.IsNullOrEmpty(argument))
             {
-                int retry = 0;
-                do
-                {
-                    var index = random.Next(0, availableFiles.Count);
-                    argumentMutation = availableFiles[index];
-                    retry++;
-                } while (argument.Contains("\\music\\") && retry<20);
+                availableFiles = availableFiles.Where(x => !x.Contains("\\music\\")).ToList();
+                var index = random.Next(0, availableFiles.Count);
+                argumentMutation = availableFiles[index];               
             }
             else if (fileDirectories.Keys.Contains(argument.ToLower().Trim()))
             {
@@ -135,11 +136,22 @@ namespace OuterHeavenBot.Modules
             else
             {
                 // For the next step with transmitting audio, you would want to pass this Audio Client in to a service.
-                var audioClient = await channel.ConnectAsync();
-                await SendAsync(audioClient, argumentMutation);
+                //var audioClient = await channel.ConnectAsync();
+
+
+                // await SendAsync(audioClient, argumentMutation);
+                // await channel.DisconnectAsync();
+                audioManager.QueueSound(new AudioRequest()
+                {
+                    Path = argumentMutation,
+                    IsMusic = argumentMutation.Contains("\\music\\"),
+                    Name = argument,
+                    RequestingChannel = channel
+                });
+
             }
            
-            await channel.DisconnectAsync();
+           
 
         }
         [Command("sounds", RunMode = RunMode.Async)]
@@ -178,19 +190,32 @@ namespace OuterHeavenBot.Modules
         private async Task SendAsync(IAudioClient client, string path)
         {
             // Create FFmpeg using the previous example
-            using(var fs = File.OpenRead(path))
+            using (var fs = File.OpenRead(path))
             using (var discord = client.CreatePCMStream(AudioApplication.Mixed, 98304, 200))
             {
                 try
                 {
-                    await fs.CopyToAsync(discord);
+                    byte[] b = new byte[fs.Length + 1];
+
+                    int length = await fs.ReadAsync(b, 0, b.Length);
+
+                    for (int i = 0; i < length / 2; i++)
+                    {
+                        await discord.WriteAsync(new byte[] { b[i] });
+                    }
+
+
+                    //await fs.CopyToAsync(discord);
                 }
                 finally
                 {
+
                     await discord.FlushAsync();
                 }
             }
         }
+
+
         private Task<Dictionary<string,List<FileInfo>>> GetAudioFiles()
         {
             var directoryFileList = new Dictionary<string, List<FileInfo>>();
@@ -203,4 +228,6 @@ namespace OuterHeavenBot.Modules
             return Task.FromResult(directoryFileList);
         }
     }
+
+   
 }

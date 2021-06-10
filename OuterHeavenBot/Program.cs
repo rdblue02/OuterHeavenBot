@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Threading.Tasks;
+using OuterHeavenBot.Audio;
+using System.Threading;
 
 namespace OuterHeavenBot
 {
@@ -40,6 +42,7 @@ namespace OuterHeavenBot
                    services.AddSingleton<DiscordBotInitializer>();
                    services.AddSingleton<CommandHandler>();
                    services.AddSingleton(new Random((int)DateTime.Now.Ticks));
+                   services.AddSingleton<AudioManager>();
                    services.AddSingleton<StartUp>();
                });
     }
