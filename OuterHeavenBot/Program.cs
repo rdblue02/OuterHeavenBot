@@ -8,6 +8,7 @@ using System;
 using System.Threading.Tasks;
 using OuterHeavenBot.Audio;
 using System.Threading;
+using YoutubeExplode;
 
 namespace OuterHeavenBot
 {
@@ -22,28 +23,25 @@ namespace OuterHeavenBot
             try
             {
                 using IHost host = CreateHostBuilder(args).Build();
-                await host.Services.GetRequiredService<StartUp>().Start();
+                await host.Services.GetRequiredService<DiscordBotInitializer>().Initialize();
                 await host.RunAsync();
             }
             catch(Exception e)
             {
                 Console.WriteLine(e);
-            }
-             
+            }  
         }
 
         static IHostBuilder CreateHostBuilder(string[] args) =>
            Host.CreateDefaultBuilder(args)
                .ConfigureServices((_, services) => {
-                   services.AddSingleton<ICommandOptions,CustomCommandOptions>();
-                   services.AddSingleton<CommandService>();
-                   services.AddSingleton<DiscordSocketClient>();
-                   services.AddSingleton<DiscordBotConfig>();
+                   services.AddSingleton<CommandService>().Configure<CommandServiceConfig>(x => { x.LogLevel = Discord.LogSeverity.Verbose; });
+                   services.AddSingleton<DiscordSocketClient>().Configure<DiscordSocketConfig>(x=>{ x.LogLevel = Discord.LogSeverity.Verbose; });
                    services.AddSingleton<DiscordBotInitializer>();
                    services.AddSingleton<CommandHandler>();
-                   services.AddSingleton(new Random((int)DateTime.Now.Ticks));
+                   services.AddTransient(x=>new Random((int)DateTime.Now.Ticks));
                    services.AddSingleton<AudioManager>();
-                   services.AddSingleton<StartUp>();
+                   services.AddSingleton<YoutubeClient>();
                });
     }
 }

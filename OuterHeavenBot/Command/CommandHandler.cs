@@ -15,16 +15,14 @@ namespace OuterHeavenBot.Command
         private readonly DiscordSocketClient client;
         private readonly CommandService commands;
         private readonly IServiceProvider serviceProvider;
-        private readonly ICommandOptions commandOptions;
+        private const char Prefix = '~';
         public CommandHandler(DiscordSocketClient client, 
                              CommandService commands, 
-                             IServiceProvider serviceProvider,
-                             ICommandOptions options)
+                             IServiceProvider serviceProvider)
         { 
             this.commands = commands;
             this.client = client;
-            this.serviceProvider = serviceProvider;
-            this.commandOptions = options ?? new DefaultCommandOptions();
+            this.serviceProvider = serviceProvider; 
            
         }
         public async Task InstallCommandsAsync()
@@ -45,9 +43,8 @@ namespace OuterHeavenBot.Command
             int argPos = 0;
 
             // Determine if the message is a command based on the prefix and make sure no bots trigger commands
-            if (!(message.HasCharPrefix(commandOptions.Prefix, ref argPos) ||
-                message.HasMentionPrefix(client.CurrentUser, ref argPos)) ||
-                message.Author.IsBot || commandOptions.RequirementsToExecute.Any(x=>!x.Invoke(message)))
+            if (!(message.HasCharPrefix(Prefix, ref argPos) ||
+                message.HasMentionPrefix(client.CurrentUser, ref argPos)))
                 return;
 
             // Create a WebSocket-based command context based on the message

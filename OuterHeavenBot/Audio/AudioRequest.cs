@@ -9,8 +9,8 @@ namespace OuterHeavenBot.Audio
 {
    public class AudioRequest
     {
-        public string Name { get; set; }
-        public string Path { get; set; }
+        public string Name { get; set; }    
+        public byte[] AudioBytes { get; set; }
         public bool IsMusic { get; set; }
         public IVoiceChannel RequestingChannel { get; set; }
 

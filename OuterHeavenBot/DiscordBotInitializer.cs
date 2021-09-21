@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Audio;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using OuterHeavenBot;
 using OuterHeavenBot.Command;
 using System;
@@ -16,16 +17,19 @@ namespace OuterHeavenBot
     {
         DiscordSocketClient client;
         CommandHandler commandHandler;
-        DiscordBotConfig options;
- 
+        IConfiguration config;
         public DiscordBotInitializer(DiscordSocketClient client,
-                                        CommandHandler commandHandler,                                        
-                                        DiscordBotConfig options)
+                                        CommandHandler commandHandler,
+                                        IConfiguration config)
         {
             this.client = client;
             client.Log += Log;
             this.commandHandler = commandHandler;
-            this.options = options;
+            this.config = config ?? throw new ArgumentNullException("misssing appsettings.config");
+            if(config["discord_token"] == null)
+            {
+                throw new ArgumentNullException("No token found in appsettings.json");
+            }
          
         }
         public async Task<DiscordSocketClient> Initialize()
@@ -42,7 +46,7 @@ namespace OuterHeavenBot
         private async Task StartClient()
         {
             await client.SetGameAsync("|~h for more info",null,ActivityType.Playing);
-            await client.LoginAsync(TokenType.Bot, options.Token);
+            await client.LoginAsync(TokenType.Bot, config["discord_token"]);
             await client.StartAsync();
         }
          

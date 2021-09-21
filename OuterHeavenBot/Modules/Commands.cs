@@ -1,7 +1,8 @@
-﻿using Discord;
+﻿using CliWrap;
+using Discord;
 using Discord.Audio;
-using Discord.Audio.Streams;
 using Discord.Commands;
+using Discord.WebSocket;
 using OuterHeavenBot.Audio;
 using System;
 using System.Collections.Generic;
@@ -9,19 +10,23 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using YoutubeExplode;
+using YoutubeExplode.Search;
+using YoutubeExplode.Videos.Streams;
 
 namespace OuterHeavenBot.Modules
 {
-   public class Commands: ModuleBase<SocketCommandContext>
+    public class Commands : ModuleBase<SocketCommandContext>
     {
         private Random random;
         private AudioManager audioManager;
-        public Commands(Random random, AudioManager audioManager)
+        private YoutubeClient youtubeClient;
+        public Commands(Random random, AudioManager audioManager, YoutubeClient youtubeClient)
         {
             this.random = random;
             this.audioManager = audioManager;
+            this.youtubeClient = youtubeClient;
         }
 
         [Summary("Lists available commands")]
@@ -54,106 +59,178 @@ namespace OuterHeavenBot.Modules
             descriptionList.Append("play a random file" + Environment.NewLine);
             descriptionList.Append("play a random file within a category" + Environment.NewLine);
 
-            EmbedBuilder embedBuilder = new EmbedBuilder() { 
-             Title = "Outer Heaven Bot Help Info",
-             Color = Color.LighterGrey,
-             Fields = new List<EmbedFieldBuilder>() {
+            EmbedBuilder embedBuilder = new EmbedBuilder()
+            {
+                Title = "Outer Heaven Bot Help Info",
+                Color = Color.LighterGrey,
+                Fields = new List<EmbedFieldBuilder>() {
               new EmbedFieldBuilder(){ IsInline= true, Name = "Command", Value= commandList },
               new EmbedFieldBuilder(){ IsInline= true, Name = "Alias",Value = aliasList },
               new EmbedFieldBuilder(){ IsInline= true, Name = "Description",Value= descriptionList },
-             }, 
+             },
             };
-        
-            await ReplyAsync(null,false, embedBuilder.Build());
+
+            await ReplyAsync(null, false, embedBuilder.Build());
         }
 
-        //todo fix variable names for argument/argument mutations.
-        //we can be more specific no that we know what this command will do.
-        [Command("play",RunMode = RunMode.Async)]
+        [Command("play", RunMode = RunMode.Async)]
         [Alias("p")]
-        public async Task Play(string argument = null)
+        public async Task Play(string argument)
+        {
+            var searchResults = await youtubeClient.Search.GetVideosAsync(argument).FirstOrDefaultAsync();
+            if (searchResults != null)
+            {
+                await audioManager.ConnectForAudio(Context);
+                if (audioManager.CurrentRequest == null)
+                {
+                    await ReplyAsync($"Playing: {searchResults.Title} - {searchResults.Author} - {searchResults.Duration}");
+                }
+                else
+                {
+                    await ReplyAsync($"Queued: {searchResults.Title} - {searchResults.Author} - {searchResults.Duration}");
+                }
+
+                var streamInfo = (await youtubeClient.Videos.Streams.GetManifestAsync(searchResults.Id)).GetAudioOnlyStreams().GetWithHighestBitrate();
+                var stream = await youtubeClient.Videos.Streams.GetAsync(streamInfo);
+                var audioRequest = new MusicRequest()
+                {
+                    Name = searchResults.Title,
+                    MusicStream = stream
+                };
+                await audioManager.QueueSound(audioRequest);
+            }
+        } 
+
+        [Command("queue", RunMode = RunMode.Async)]
+        [Alias("q")]
+        public async Task Queue()
+        {
+            var quedSongs = audioManager.GetQueue();
+          
+            if (quedSongs.Any())
+            {
+                EmbedBuilder embedBuilder = new EmbedBuilder()
+                {
+                    Title = "Song Queue",
+                    Color = Color.LighterGrey,
+                    Fields = new List<EmbedFieldBuilder>()
+                };
+
+                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = string.Join(Environment.NewLine,quedSongs.Select(x => x.Item1).ToList()) });
+                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = string.Join(Environment.NewLine, quedSongs.Select(x => x.Item2).ToList()) });
+                await ReplyAsync(null, false, embedBuilder.Build());
+            }
+            else
+            {
+                await ReplyAsync("No songs currently in queue");
+            }
+        }
+
+        [Command("clippie", RunMode = RunMode.Async)]
+        [Alias("c")]
+        public async Task Clippie(string contentName = null)
         {
             var channel = (Context.User as IGuildUser)?.VoiceChannel;
             if (channel == null) { await Context.Channel.SendMessageAsync("User must be in a voice channel."); return; }
 
+            if (audioManager.PlayingMusic)
+            {
+                await ReplyAsync("Can't play clippes during music. That would be rude!");
+                return;
+            }
             var fileDirectories = await GetAudioFiles();
             var availableFiles = fileDirectories.SelectMany(x => x.Value).Select(x => x.FullName).ToList();
 
             //variable used so we don't mutate the origional argument value
-            var argumentMutation = "";
-            if (string.IsNullOrEmpty(argument))
+            var pathToContent = "";
+            if (string.IsNullOrEmpty(contentName))
             {
                 availableFiles = availableFiles.Where(x => !x.Contains("\\music\\")).ToList();
                 var index = random.Next(0, availableFiles.Count);
-                argumentMutation = availableFiles[index];               
+                pathToContent = availableFiles[index];
             }
-            else if (fileDirectories.Keys.Contains(argument.ToLower().Trim()))
+            else if (fileDirectories.Keys.Contains(contentName.ToLower().Trim()))
             {
-                var index = random.Next(0, fileDirectories[argument].Count);
-                argumentMutation = fileDirectories[argument][index].FullName;
+                var index = random.Next(0, fileDirectories[contentName].Count);
+                pathToContent = fileDirectories[contentName][index].FullName;
             }
             else
             {
-                argumentMutation = argument.ToLower().Trim();
+                pathToContent = contentName.ToLower().Trim();
 
                 bool matchFound = false;
 
-                foreach(var fileName in availableFiles)
+                foreach (var fileName in availableFiles)
                 {
                     //we have an exact match including extension. No need for further checks.
-                    if(fileName.ToLower() == argumentMutation)
+                    if (fileName.ToLower() == pathToContent)
                     {
-                        argumentMutation = fileName;
+                        pathToContent = fileName;
                         matchFound = true;
                         break;
                     }
 
-                    if(fileName.LastIndexOf('.') > 0 || fileName.LastIndexOf('\\') > 0)
+                    if (fileName.LastIndexOf('.') > 0 || fileName.LastIndexOf('\\') > 0)
                     {
                         var friendlyName = fileName.Substring(fileName.LastIndexOf('\\') + 1);
                         var extensionIndex = friendlyName.LastIndexOf('.');
                         friendlyName = friendlyName.Substring(0, extensionIndex).ToLower().Trim();
-                       
-                        if (friendlyName == argumentMutation || friendlyName.Replace("-1", "").Trim() == argumentMutation)
+
+                        if (friendlyName == pathToContent || friendlyName.Replace("-1", "").Trim() == pathToContent)
                         {
-                            argumentMutation = fileName;
+                            pathToContent = fileName;
                             matchFound = true;
                             break;
                         }
-                    } 
+                    }
                 }
                 //no exact match found for literal or friendly file name. Take the next closest one.
                 if (!matchFound)
                 {
-                    argumentMutation = availableFiles.FirstOrDefault(x => x.ToLower().Contains(argumentMutation));
-                }                              
+                    pathToContent = availableFiles.FirstOrDefault(x => x.ToLower().Contains(pathToContent));
+                }
             }
 
-            if(string.IsNullOrEmpty(argumentMutation))
+            if (string.IsNullOrEmpty(pathToContent))
             {
-                await ReplyAsync($"No files found for {argument}");
+                await ReplyAsync($"No files found for {contentName}");
             }
             else
             {
-                // For the next step with transmitting audio, you would want to pass this Audio Client in to a service.
-                //var audioClient = await channel.ConnectAsync();
-
-
-                // await SendAsync(audioClient, argumentMutation);
-                // await channel.DisconnectAsync();
-                audioManager.QueueSound(new AudioRequest()
+                await audioManager.ConnectForAudio(Context);
+                var clippie = new ClippieRequest()
                 {
-                    Path = argumentMutation,
-                    IsMusic = argumentMutation.Contains("\\music\\"),
-                    Name = argument,
-                    RequestingChannel = channel
-                });
-
+                    Name = contentName,
+                    ContentPath = pathToContent
+                };
+                await audioManager.QueueSound(clippie);
             }
-           
-           
-
         }
+
+
+        [Command("skip", RunMode = RunMode.Async)]
+        [Alias("sk")]
+        public async Task Skip()
+        {
+            await ReplyAsync($"Skipping - {audioManager.CurrentRequest.Name}");
+            audioManager.RequestSkip();
+        }
+        //[Command("pause", RunMode = RunMode.Async)]
+        //[Alias("pa")]
+        //public async Task Pause()
+        //{
+        //    if (audioManager.Paused)
+        //    {
+        //        audioManager.UnPause();
+        //    }
+        //    else
+        //    {
+        //        audioManager.Pause();
+        //    }
+        //    var status = audioManager.Paused ? "paused" : "unpaused";
+        //    await ReplyAsync($"Player is now {status}");
+        //}
+
         [Command("sounds", RunMode = RunMode.Async)]
         [Alias("s")]
         public async Task SendUserAvailableSounds(string category = null)
@@ -166,10 +243,10 @@ namespace OuterHeavenBot.Modules
                 message.Append(string.Join(", ", directories.Keys));
                 await ReplyAsync(message.ToString());
             }
-            else if(directories.ContainsKey(category.ToLower().Trim()))
+            else if (directories.ContainsKey(category.ToLower().Trim()))
             {
                 message.Append($"Available sounds for {category} below. Use ~p <filename> or ~play <filename> to play" + Environment.NewLine);
-                
+
                 foreach (var file in directories[category])
                 {
                     var fileName = file.Name;
@@ -184,43 +261,14 @@ namespace OuterHeavenBot.Modules
             else
             {
                 await ReplyAsync("Invalid sound option");
-            }         
-        }
-
-        private async Task SendAsync(IAudioClient client, string path)
-        {
-            // Create FFmpeg using the previous example
-            using (var fs = File.OpenRead(path))
-            using (var discord = client.CreatePCMStream(AudioApplication.Mixed, 98304, 200))
-            {
-                try
-                {
-                    byte[] b = new byte[fs.Length + 1];
-
-                    int length = await fs.ReadAsync(b, 0, b.Length);
-
-                    for (int i = 0; i < length / 2; i++)
-                    {
-                        await discord.WriteAsync(new byte[] { b[i] });
-                    }
-
-
-                    //await fs.CopyToAsync(discord);
-                }
-                finally
-                {
-
-                    await discord.FlushAsync();
-                }
             }
         }
 
-
-        private Task<Dictionary<string,List<FileInfo>>> GetAudioFiles()
+        private Task<Dictionary<string, List<FileInfo>>> GetAudioFiles()
         {
             var directoryFileList = new Dictionary<string, List<FileInfo>>();
-           var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\audio").GetDirectories();
-            foreach(var directory in directories)
+            var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\audio").GetDirectories();
+            foreach (var directory in directories)
             {
                 var fileNames = directory.GetFiles().ToList();
                 directoryFileList.Add(directory.Name, fileNames);
@@ -229,5 +277,5 @@ namespace OuterHeavenBot.Modules
         }
     }
 
-   
+
 }
