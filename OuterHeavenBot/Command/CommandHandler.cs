@@ -9,27 +9,29 @@ using System.Threading.Tasks;
 
 namespace OuterHeavenBot.Command
 {
-    
+
     public class CommandHandler
     {
         private readonly DiscordSocketClient client;
         private readonly CommandService commands;
         private readonly IServiceProvider serviceProvider;
         private const char Prefix = '~';
-        public CommandHandler(DiscordSocketClient client, 
-                             CommandService commands, 
+
+        public CommandHandler(DiscordSocketClient client,
+                             CommandService commands,
                              IServiceProvider serviceProvider)
-        { 
+        {
             this.commands = commands;
             this.client = client;
-            this.serviceProvider = serviceProvider; 
-           
+            this.serviceProvider = serviceProvider;
+
+
         }
         public async Task InstallCommandsAsync()
         {
             // Hook the MessageReceived event into our command handler
             client.MessageReceived += HandleCommandAsync;
-         
+
             await commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
                                             services: serviceProvider);
         }
@@ -54,15 +56,15 @@ namespace OuterHeavenBot.Command
             // created, along with the service provider for precondition checks.
             try
             {
-               await commands.ExecuteAsync(
-               context: context,
-               argPos: argPos,
-               services: serviceProvider);
+                await commands.ExecuteAsync(
+                context: context,
+                argPos: argPos,
+                services: serviceProvider);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine(e);
             }
-        }           
+        }
     }
 }

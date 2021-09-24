@@ -1,14 +1,11 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
-using OuterHeavenBot;
 using OuterHeavenBot.Command;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Threading.Tasks;
-using OuterHeavenBot.Audio;
-using System.Threading;
-using YoutubeExplode;
+using Victoria;
 
 namespace OuterHeavenBot
 {
@@ -40,8 +37,7 @@ namespace OuterHeavenBot
                    services.AddSingleton<DiscordBotInitializer>();
                    services.AddSingleton<CommandHandler>();
                    services.AddTransient(x=>new Random((int)DateTime.Now.Ticks));
-                   services.AddSingleton<AudioManager>();
-                   services.AddSingleton<YoutubeClient>();
+                   services.AddLavaNode(x => { x.LogSeverity = Discord.LogSeverity.Verbose; x.Authorization = "0_9_21_2021"; });
                });
     }
 }
