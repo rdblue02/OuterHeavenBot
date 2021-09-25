@@ -56,7 +56,6 @@ namespace OuterHeavenBot.Modules
             {
                 await PlayTrack(searchResults.Tracks.ElementAt(0), player);
             }
-
         }
 
         [Command("playlocal", RunMode = RunMode.Async)]
@@ -156,9 +155,9 @@ namespace OuterHeavenBot.Modules
 
         }
 
-        [Command("clearQ", RunMode = RunMode.Async)]
+        [Command("clearqueue", RunMode = RunMode.Async)]
         [Alias("cq")]
-        public async Task ClearQ([Remainder]string song = null)
+        public async Task ClearQ([Remainder]int? index = null)
         {
             if (!(await ValideToConnection()))
             {
@@ -171,16 +170,19 @@ namespace OuterHeavenBot.Modules
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(song))
+            if (index.HasValue)
             {
-                await ReplyAsync($"Clearing {player.Queue.Count} songs from the queue");
-                player.Queue.Clear();
+                if (index.Value  > 0 && index.Value  < player.Queue.Count-1)
+                {
+                    var trackToKill = player.Queue.ElementAt(index.Value - 1);
+                    player.Queue.Remove(trackToKill);
+                    await ReplyAsync($"Clearing {trackToKill.Title} from the queue");
+                }
             }
             else
             {
-                var trackToKill = player.Queue.FirstOrDefault(x => x.Title.ToLower().Contains(song));
-                player.Queue.Remove(trackToKill);
-                await ReplyAsync($"Clearing {trackToKill.Title} from the queue");
+                await ReplyAsync($"Clearing {player.Queue.Count} songs from the queue");
+                player.Queue.Clear();
             }
 
         }
@@ -221,7 +223,7 @@ namespace OuterHeavenBot.Modules
         }
 
         [Command("rewind", RunMode = RunMode.Async)]
-        [Alias("r")]
+        [Alias("rw")]
         public async Task Rewind(int seconds)
         {
             if (!(await ValideToConnection()))

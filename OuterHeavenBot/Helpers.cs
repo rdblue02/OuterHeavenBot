@@ -10,6 +10,7 @@ namespace OuterHeavenBot
 {
     public static class Helpers
     {
+   
         public static  Dictionary<string, List<FileInfo>> GetAudioFiles()
         {
             var directoryFileList = new Dictionary<string, List<FileInfo>>();
@@ -35,4 +36,5 @@ namespace OuterHeavenBot
             return Encoding.UTF8.GetString(gZipBuffer);
         }
     }
+
 }

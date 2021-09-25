@@ -43,8 +43,14 @@ namespace OuterHeavenBot
         {
             if (!lavaNode.IsConnected)
             {
-              await lavaNode.ConnectAsync();
-                lavaNode.OnTrackEnded += LavaNode_OnTrackEnded;
+                try{
+                    await lavaNode.ConnectAsync();
+                    lavaNode.OnTrackEnded += LavaNode_OnTrackEnded;
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e);     
+                }         
             }
         }
 
