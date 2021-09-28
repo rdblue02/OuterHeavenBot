@@ -1,39 +1,60 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenBot.Modules;
+using OuterHeavenBot.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-
+using Victoria;
 namespace OuterHeavenBot.Command
 {
-
-    public class CommandHandler
+    public class CommandHandler<T>  
     {
         private readonly DiscordSocketClient client;
         private readonly CommandService commands;
         private readonly IServiceProvider serviceProvider;
         private const char Prefix = '~';
 
-        public CommandHandler(DiscordSocketClient client,
+        public CommandHandler(DiscordClippieClient client,
                              CommandService commands,
                              IServiceProvider serviceProvider)
         {
             this.commands = commands;
             this.client = client;
             this.serviceProvider = serviceProvider;
-
+          
+        }
+        public CommandHandler(DiscordSocketClient client,
+                             CommandService commands,
+                             IServiceProvider serviceProvider)
+        {
+            this.commands = commands;
+            this.client =  client;
+            this.serviceProvider = serviceProvider;
 
         }
         public async Task InstallCommandsAsync()
         {
             // Hook the MessageReceived event into our command handler
             client.MessageReceived += HandleCommandAsync;
+         
+            if(typeof(T) == typeof(DiscordSocketClient))
+            {                
+                await commands.AddModuleAsync(typeof(GeneralCommands), serviceProvider);
+                await commands.AddModuleAsync(typeof(MusicCommands), serviceProvider);
+            }
+            else if(typeof(T) == typeof(DiscordClippieClient))
+            {
+                await commands.AddModuleAsync(typeof(ClippieCommands), serviceProvider);
+            }
+            else
+            {
+                throw new InvalidOperationException($"type {typeof(T).Name} is not valid in this context. T must be type {nameof(DiscordSocketClient)} or {nameof(DiscordClippieClient)}");
+            }
 
-            await commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
-                                            services: serviceProvider);
         }
         private async Task HandleCommandAsync(SocketMessage messageParam)
         {

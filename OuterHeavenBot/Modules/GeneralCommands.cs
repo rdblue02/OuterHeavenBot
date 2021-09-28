@@ -10,44 +10,18 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
+using Victoria;
 
 namespace OuterHeavenBot.Modules
-{
-    /*
-   
-        "help","h","none","Displays help info"
-
-        "play","p","name | url | none","Play a song"
-        
-        "playlocal","pl","name | file path | none" ,"Play a song from local directory"
-
-        "pause","pa","none","Pause or unpause current song"
-      
-        "skip","sk","none" ,"Skips current song"  
-
-        "clearqueue","cq","index" ,"Clear queue or song in queue"   
-
-        "fastforward","ff","seconds","Fast forward current song" 
-
-        "rewind","rw","seconds","Rewind current song"
-     
-        "goto","gt","hh:mm:ss","Go to time stamp in song" 
-
-        "trackInfo","t","none","Get info about current song"
- 
-        "queue","q","none","List songs in queue"
-
-        "disconnect","dc","none","Disconnect the bot"
-
-        "clippie","c","name | category | none","Play a clippe"
-
-        "clippesounds","cs","category | none","Get available clippes"  
-     
-     
-     */
+{ 
     public class GeneralCommands : ModuleBase<SocketCommandContext>
     {
+        private LavaNode lavaNode;
+        public GeneralCommands(LavaNode lavaNode)
+        {
+            this.lavaNode = lavaNode;
+        }
+
         [Summary("Lists available commands")]
         [Command("help")]
         [Alias("h")]
@@ -154,6 +128,23 @@ namespace OuterHeavenBot.Modules
             };
 
             await ReplyAsync(null, false, embedBuilder.Build());
+        }
+
+
+        [Command("disconnect", RunMode = RunMode.Async)]
+        [Alias("dc")]
+        public async Task Disconnect()
+        {
+            await ReplyAsync("Stopping music bot");
+            if (lavaNode.HasPlayer(Context.Guild))
+            {
+                var player =  lavaNode.GetPlayer(Context.Guild);
+                if (player != null)
+                {
+                    await lavaNode.LeaveAsync(player.VoiceChannel);
+                }
+                await lavaNode.DisconnectAsync();
+            }
         }
 
         [Command("options")]

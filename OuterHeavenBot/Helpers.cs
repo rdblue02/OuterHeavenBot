@@ -14,7 +14,7 @@ namespace OuterHeavenBot
         public static  Dictionary<string, List<FileInfo>> GetAudioFiles()
         {
             var directoryFileList = new Dictionary<string, List<FileInfo>>();
-            var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\audio").GetDirectories();
+            var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\clips").GetDirectories();
             foreach (var directory in directories)
             {
                 var fileNames = directory.GetFiles().ToList();

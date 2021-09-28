@@ -1,7 +1,10 @@
 ﻿using Discord;
 using Discord.Commands;
+using Discord.WebSocket;
+using OuterHeavenBot.Services;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,26 +16,23 @@ namespace OuterHeavenBot.Modules
     public class MusicCommands : ModuleBase<SocketCommandContext>
     {
         private LavaNode lavaNode;
-
-        public MusicCommands(LavaNode lavaNode )
+        private AudioService audioService;
+        public MusicCommands(LavaNode lavaNode,AudioService audioService)
         {
             this.lavaNode = lavaNode;
+
+            this.audioService = audioService;
         }
 
         [Command("play", RunMode = RunMode.Async)]
         [Alias("p")]
         public async Task Play([Remainder]string argument)
         { 
-            if(!(await ValideToConnection()))
-            {
-                return;
-            }
             if (string.IsNullOrWhiteSpace(argument))
             {
                 await ReplyAsync("Song name cannot be empty");
                 return;
             }
-            var player = await GetPlayer();
 
             var searchResults = await lavaNode.SearchYouTubeAsync(argument);
             if (searchResults.Status == SearchStatus.NoMatches)
@@ -46,26 +46,54 @@ namespace OuterHeavenBot.Modules
                     return;
                 }
             }
-            var track = searchResults.Tracks.ElementAt(0);
-            if (player.PlayerState == PlayerState.Playing)
+
+            if(!string.IsNullOrWhiteSpace(searchResults.Playlist.Name))
             {
-                await ReplyAsync($"Adding {track.Title} - {track.Author} - {track.Duration} to the queue");
-                player.Queue.Enqueue(track);
+                await ReplyAsync($"Queuing Playlist {searchResults.Playlist.Name}");
+                string playListMessage = "";
+                int index = 1;
+                foreach(var plTrack in searchResults.Tracks)
+                {
+                    playListMessage += $"{index}) {plTrack.Title} - {plTrack.Author} - {plTrack.Duration}";
+                    await ReplyAsync(playListMessage);
+                    await audioService.ProcessTrack(plTrack);
+                    index++;
+                }
+                return;
+            }
+
+            LavaTrack track = null;
+            if (argument.Contains("https://"))
+            {
+                Console.WriteLine($"search by link detected. Returned {searchResults.Tracks.Count} tracks");
+                track = searchResults.Tracks.FirstOrDefault(x=>x.Url.ToLower().Trim() == argument.ToLower().Trim());
+               
+                if(track == null)
+                {
+                    track = searchResults.Tracks.FirstOrDefault();
+                    Console.WriteLine($"Cannot find a matching track to url. Selecting {track.Title}");
+                    
+                }
+                else
+                {
+                    Console.WriteLine($"Found a matching track to url. Selecting {track.Title}");
+                }
             }
             else
             {
-                await PlayTrack(searchResults.Tracks.ElementAt(0), player);
+                track = searchResults.Tracks.FirstOrDefault();
+                Console.WriteLine($"Searched by song name. Selecting {track.Title}");
             }
+            var state = audioService.WillQueue ? "Queuing" : "Playing";
+
+            await ReplyAsync($"{state} {track.Title} - {track.Author} - {track.Duration}");
+            await audioService.ProcessTrack(track);
         }
 
         [Command("playlocal", RunMode = RunMode.Async)]
         [Alias("pl")]
         public async Task PlayLocal([Remainder] string argument)
         {
-            if (!(await ValideToConnection()))
-            {
-                return;
-            }
             if (string.IsNullOrWhiteSpace(argument))
             {
                 await ReplyAsync("Song name cannot be empty");
@@ -73,98 +101,73 @@ namespace OuterHeavenBot.Modules
             }
  
             var filePath = "";
-            if (argument.Contains("c://"))
-            {
-                filePath = argument;
-            }
-            else
-            {
-                var audioFiles = Helpers.GetAudioFiles();
+            var audioFiles = new DirectoryInfo(Directory.GetCurrentDirectory()+"\\music").GetFiles();
 
-                if (audioFiles.ContainsKey("music"))
-                {
-                    filePath = audioFiles["music"].FirstOrDefault(x => x.Name == argument)?.FullName;
-                }
-            }
+            Console.WriteLine($"Found {audioFiles.Count()} files");
+            filePath = audioFiles.FirstOrDefault(x => x.Name.ToLower().Trim().Contains(argument.ToLower().Trim()))?.FullName;
+            
             if (string.IsNullOrWhiteSpace(filePath))
             {
                 await ReplyAsync($"Cannot find {argument}");
                 return;
             }
+
             var searchResults = await lavaNode.SearchAsync(SearchType.Direct, filePath);
-            if (searchResults.Status == SearchStatus.NoMatches || searchResults.Status == SearchStatus.LoadFailed)
+            if (searchResults.Status == SearchStatus.NoMatches )
+            {
+                await ReplyAsync($"Cannot find {argument}");
+                return;
+            }
+            else if(searchResults.Status == SearchStatus.LoadFailed)
             {
                 await ReplyAsync($"Error playing {argument}");
                 return;
             }
-            await PlayTrack(searchResults.Tracks.FirstOrDefault(), await GetPlayer());           
+            else
+            {
+                var track = searchResults.Tracks.FirstOrDefault();
+                var state = audioService.WillQueue ? "Queuing" : "Playing";
+
+                await ReplyAsync($"{state} {track.Title} - {track.Author} - {track.Duration}");
+                await audioService.ProcessTrack(track);           
+            }
         }
 
         [Command("pause", RunMode = RunMode.Async)]
         [Alias("pa")]
         public async Task Pause()
-        {
-            if (!(await ValideToConnection()))
+        { 
+           if(await audioService.ChangePauseState())
             {
-                return;
-            }
-            var player = await GetPlayer(false);
-
-            if (player?.PlayerState == Victoria.Enums.PlayerState.Playing)
-            {
-                await player.PauseAsync();
-                await ReplyAsync($"Player is now paused");
-            }
-            else if (player?.PlayerState == Victoria.Enums.PlayerState.Paused)
-            {
-                await player.ResumeAsync();
-                await ReplyAsync($"Player is now unpaused");
+                await ReplyAsync($"Player is now {audioService.CurrentState}");
             }
             else
             {
-                await ReplyAsync($"There's nothing to pause!");
+                await ReplyAsync($"Player isn't playing!");
             }
-
         }
+
         [Command("skip", RunMode = RunMode.Async)]
         [Alias("sk")]
         public async Task Skip()
-        {
-            if (!(await ValideToConnection()))
+        { 
+            if (!string.IsNullOrWhiteSpace(audioService.CurrentTrackName))
             {
-                return;
-            }
-
-            var player = await GetPlayer(false);
-            if (player?.Queue.Any() ?? false)
-            {
-                var track = await player.SkipAsync();
-                await ReplyAsync($"Skipping - {track.Skipped.Title}"); 
+                await audioService.Skip();
+                await ReplyAsync($"Skipping - {audioService.CurrentTrackName}"); 
             }
             else
             {
-                if (player?.Track != null)
-                {
-                    await player.StopAsync();
-                }
-                else
-                {
-                    await ReplyAsync($"There's nothing to skip!");
-                }
+                await ReplyAsync($"There's nothing to skip!");
             }
-
         }
 
         [Command("clearqueue", RunMode = RunMode.Async)]
         [Alias("cq")]
         public async Task ClearQ([Remainder]int? index = null)
         {
-            if (!(await ValideToConnection()))
-            {
-                return;
-            }
-            var player = await GetPlayer(false);
-            if (!player?.Queue.Any() ?? true)
+           
+            if (!audioService.activeLavaPlayer?.Queue.Any() ?? true)
             {
                 await ReplyAsync("Que is currently empty!");
                 return;
@@ -172,17 +175,21 @@ namespace OuterHeavenBot.Modules
 
             if (index.HasValue)
             {
-                if (index.Value  > 0 && index.Value  < player.Queue.Count-1)
+                if (index.Value  > 0 && index.Value  < audioService.activeLavaPlayer?.Queue.Count-1)
                 {
-                    var trackToKill = player.Queue.ElementAt(index.Value - 1);
-                    player.Queue.Remove(trackToKill);
+                    var trackToKill = audioService.activeLavaPlayer.Queue.ElementAt(index.Value - 1);
+                    audioService.activeLavaPlayer.Queue.Remove(trackToKill);
                     await ReplyAsync($"Clearing {trackToKill.Title} from the queue");
+                }
+                else
+                {
+                    await ReplyAsync($"Invalid index. Please enter a value between 1 - {audioService.activeLavaPlayer?.Queue.Count - 1}");
                 }
             }
             else
             {
-                await ReplyAsync($"Clearing {player.Queue.Count} songs from the queue");
-                player.Queue.Clear();
+                await ReplyAsync($"Clearing {audioService.activeLavaPlayer.Queue.Count} songs from the queue");
+                audioService.activeLavaPlayer.Queue.Clear();
             }
 
         }
@@ -191,11 +198,8 @@ namespace OuterHeavenBot.Modules
         [Alias("ff")]
         public async Task FastForward(int seconds)
         {
-            if (!(await ValideToConnection()))
-            {
-                return;
-            }
-            var player = await GetPlayer(false);
+
+            var player = audioService.activeLavaPlayer;
             if(player?.Track == null)
             {
                 await ReplyAsync($"Nothing is playing");
@@ -226,11 +230,8 @@ namespace OuterHeavenBot.Modules
         [Alias("rw")]
         public async Task Rewind(int seconds)
         {
-            if (!(await ValideToConnection()))
-            {
-                return;
-            }
-            var player = await GetPlayer(false);
+
+            var player = audioService.activeLavaPlayer;
             if (player?.Track == null)
             {
                 await ReplyAsync($"Nothing is playing");
@@ -255,12 +256,8 @@ namespace OuterHeavenBot.Modules
         [Command("goto", RunMode = RunMode.Async)]
         [Alias("gt")]
         public async Task GoTo(string time)
-        {
-            if (!(await ValideToConnection()))
-            {
-                return;
-            }
-            var player = await GetPlayer(false);
+        { 
+            var player = audioService.activeLavaPlayer;
             if (player?.Track == null)
             {
                 await ReplyAsync($"Nothing is playing");
@@ -290,7 +287,7 @@ namespace OuterHeavenBot.Modules
         [Alias("t")]
         public async Task GetCurrentTrack()
         {
-            var track = (await GetPlayer(false))?.Track;
+            var track = audioService.activeLavaPlayer.Track;
             if (track != null)
             {
                 await ReplyAsync($"Current track: {track.Title} - {track.Author} - {track.Duration} - {track.Url}");
@@ -305,7 +302,7 @@ namespace OuterHeavenBot.Modules
         [Alias("q")]
         public async Task Queue()
         {
-            var quedSongs = (await GetPlayer())?.Queue;
+            var quedSongs = this.audioService.activeLavaPlayer.Queue;
 
             if (quedSongs!=null && quedSongs.Any())
             {
@@ -316,107 +313,19 @@ namespace OuterHeavenBot.Modules
                     Fields = new List<EmbedFieldBuilder>()
                 };
 
-                var info = quedSongs.Select((x, y) => new { i = (y + 1).ToString(), t = x.Title }).ToList();
+                var info = quedSongs.Select((x, y) => new { i = (y + 2).ToString(), t = x.Title }).ToList();
 
-                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = string.Join(Environment.NewLine, info.Select(x => x.i).ToList()) });
-                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = string.Join(Environment.NewLine, info.Select(x => x.t).ToList()) });
+                var indexString = $"1{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.i).ToList())}";
+                var songString = $"{audioService.CurrentTrackName}{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.t).ToList())}";
+
+                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = indexString  });
+                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = songString });
                 await ReplyAsync(null, false, embedBuilder.Build());
             }
             else
             {
                 await ReplyAsync("No songs currently in queue");
             }
-        }
-
-        [Command("disconnect", RunMode = RunMode.Async)]
-        [Alias("dc")]
-        public async Task Disconnect()
-        {
-            await ReplyAsync("Stopping music bot");
-           var player =  await GetPlayer(false);
-            if (player != null)
-            {
-                await lavaNode.LeaveAsync(player.VoiceChannel);
-            }
-           await lavaNode.DisconnectAsync();
-           
-        }
-        private async Task PlayTrack(LavaTrack track, LavaPlayer player)
-        {
-            await player.TextChannel.SendMessageAsync(
-                   $"Now playing: {track.Title} - {track.Author} - {track.Duration}");
-
-            await player.PlayAsync(track);
-        }
-      
-
-        private async Task<LavaPlayer> GetPlayer(bool connect = true)
-        {
-            LavaPlayer player = null;
-            if (lavaNode.HasPlayer(Context.Guild))
-            {
-                player = lavaNode.GetPlayer(Context.Guild);
-            }
-            else
-            {
-                if (connect)
-                {
-                    var voiceState = Context.User as IVoiceState;
-                    player = await lavaNode.JoinAsync(voiceState.VoiceChannel, Context.Channel as ITextChannel);
-                }
-            }
-            return player;
-        }
-        private async Task<bool> ValideToConnection()
-        {
-            if (!UserIsInVoice())
-            {
-                await ReplyAsync("You must be connected to a voice channel!");
-                return false;
-            }
-
-            if (BotsInOtherChannel())
-            {
-                await ReplyAsync("Bot is currently playing in a different channel");
-                return false;
-            }
-            return true;
-        }
-        private bool UserIsInVoice()
-        {
-            var voiceState = Context.User as IVoiceState;
-            if (voiceState?.VoiceChannel == null)
-            { 
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-        private bool BotsInOtherChannel()
-        {
-            if (lavaNode.HasPlayer(Context.Guild))
-            {
-               var player = lavaNode.GetPlayer(Context.Guild);
-                var userVoicChannel = (Context.User as IGuildUser)?.VoiceChannel;
-                if ((player.PlayerState == PlayerState.Playing ||
-                            player.PlayerState == PlayerState.Paused) &&
-                            userVoicChannel.Name != player.VoiceChannel?.Name)
-                {
-
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                return false;
-            }
-            
         }
     }
 }

@@ -2,45 +2,50 @@
 using Discord.Audio;
 using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenBot.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Victoria;
 
 namespace OuterHeavenBot.Modules
 {
-    public class ClippieCommands:ModuleBase<SocketCommandContext>
+    public class ClippieCommands : ModuleBase<SocketCommandContext>
     {
         private Random random;
-        private LavaNode lavaNode;
-        public ClippieCommands(Random random, LavaNode lavaNode)
+        private AudioService audioService;
+        public ClippieCommands(Random random, AudioService audioService)
         {
             this.random = random;
-            this.lavaNode = lavaNode;
+            this.audioService = audioService;
         }
 
         [Command("clippie", RunMode = RunMode.Async)]
         [Alias("c")]
         public async Task Clippie(string contentName = null)
         {
-          if(!UserIsInVoice())
-          {
+            if (!UserIsInVoice())
+            {
                 await ReplyAsync("You must be connected to a voice channel!");
                 return;
-          }
-            var player = await GetPlayer(false);
-            if (player?.PlayerState == Victoria.Enums.PlayerState.Playing)
+            }
+            if (audioService.ClippiePlaying)
             {
-                await ReplyAsync("Can't play clippes during music. That would be rude!");
+                await ReplyAsync("I can't do that yet.");
                 return;
             }
-            var fileDirectories =  Helpers.GetAudioFiles();
-            var availableFiles = fileDirectories.SelectMany(x => x.Value).Select(x => x.FullName).ToList();
 
-            //variable used so we don't mutate the origional argument value
+            if (audioService.BlockClippies)
+            {
+                await ReplyAsync("Clippies are turned off");
+                return;
+            }
+
+            var fileDirectories = Helpers.GetAudioFiles();
+            var availableFiles = fileDirectories.SelectMany(x => x.Value).Select(x => x.FullName).ToList();
             var pathToContent = "";
             if (string.IsNullOrEmpty(contentName))
             {
@@ -97,9 +102,9 @@ namespace OuterHeavenBot.Modules
             else
             {
                 var bytes = File.ReadAllBytes(pathToContent);
-                var channel = (Context.User as IGuildUser)?.VoiceChannel;
-                var client =await channel.ConnectAsync();
-                using (var discordOutStream = client.CreatePCMStream(AudioApplication.Mixed, 98304, 200))
+                var client = await (Context.User as IGuildUser)?.VoiceChannel.ConnectAsync();
+
+                using (var discordOutStream = client.CreatePCMStream(AudioApplication.Mixed, 98304, 20))
                 {
                     try
                     {
@@ -111,19 +116,18 @@ namespace OuterHeavenBot.Modules
                     }
                     finally
                     {
-                        discordOutStream.Flush();
+                        discordOutStream.Dispose();
+                        await (Context.User as IGuildUser)?.VoiceChannel.DisconnectAsync();
                     }
-                    
                 }
-               await channel.DisconnectAsync();
             }
         }
-       
+
         [Command("sounds", RunMode = RunMode.Async)]
         [Alias("cs")]
         public async Task SendUserAvailableSounds(string category = null)
         {
-            var directories =   Helpers.GetAudioFiles();
+            var directories = Helpers.GetAudioFiles();
             StringBuilder message = new StringBuilder();
             if (string.IsNullOrWhiteSpace(category))
             {
@@ -151,24 +155,6 @@ namespace OuterHeavenBot.Modules
                 await ReplyAsync("Invalid sound option");
             }
         }
-        private async Task<LavaPlayer> GetPlayer(bool connect = true)
-        {
-            LavaPlayer player = null;
-            if (lavaNode.HasPlayer(Context.Guild))
-            {
-                player = lavaNode.GetPlayer(Context.Guild);
-            }
-            else
-            {
-                if (connect)
-                {
-                    var voiceState = Context.User as IVoiceState;
-                    player = await lavaNode.JoinAsync(voiceState.VoiceChannel, Context.Channel as ITextChannel);
-                }
-            }
-            return player;
-        }
-         
         private bool UserIsInVoice()
         {
             var voiceState = Context.User as IVoiceState;
@@ -181,6 +167,6 @@ namespace OuterHeavenBot.Modules
                 return true;
             }
         }
-        
+
     }
 }
