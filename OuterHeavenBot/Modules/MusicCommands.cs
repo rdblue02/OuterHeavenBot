@@ -27,73 +27,94 @@ namespace OuterHeavenBot.Modules
         [Command("play", RunMode = RunMode.Async)]
         [Alias("p")]
         public async Task Play([Remainder]string argument)
-        { 
-            if (string.IsNullOrWhiteSpace(argument))
+        {
+            try
             {
-                await ReplyAsync("Song name cannot be empty");
-                return;
-            }
-
-            var searchResults = await lavaNode.SearchYouTubeAsync(argument);
-            if (searchResults.Status == SearchStatus.NoMatches)
-            {
-                await ReplyAsync("No matches found on youtube. Checking Sound Cloud");
-                searchResults = await lavaNode.SearchSoundCloudAsync(argument);
-
-                if (searchResults.Status == SearchStatus.NoMatches)
+                if (string.IsNullOrWhiteSpace(argument))
                 {
-                    await ReplyAsync($"No matches found for {argument}");
+                    await ReplyAsync("Song name cannot be empty");
                     return;
                 }
-            }
+                var user = Context.User as IVoiceState;
 
-            if(!string.IsNullOrWhiteSpace(searchResults.Playlist.Name))
-            {
-                await ReplyAsync($"Queuing Playlist {searchResults.Playlist.Name}");
-                string playListMessage = "";
-                int index = 1;
-                foreach(var plTrack in searchResults.Tracks)
+                if (user == null)
                 {
-                    playListMessage += $"{index}) {plTrack.Title} - {plTrack.Author} - {plTrack.Duration}";
-                    await ReplyAsync(playListMessage);
-                    await audioService.ProcessTrack(plTrack);
-                    index++;
+                    await ReplyAsync("You must be in a voice channel for this command");
+                    return;
                 }
-                return;
-            }
 
-            LavaTrack track = null;
-            if (argument.Contains("https://"))
-            {
-                Console.WriteLine($"search by link detected. Returned {searchResults.Tracks.Count} tracks");
-                track = searchResults.Tracks.FirstOrDefault(x=>x.Url.ToLower().Trim() == argument.ToLower().Trim());
-               
-                if(track == null)
+                if (audioService.IsPlayerInAnotherChannel(user))
                 {
-                    track = searchResults.Tracks.FirstOrDefault();
-                    Console.WriteLine($"Cannot find a matching track to url. Selecting {track.Title}");
-                    
+                    await ReplyAsync("You must be in the same channel as the bot for this command");
+                    return;
+                }
+                var searchType = argument.Contains("https://") ? SearchType.Direct : SearchType.YouTubeMusic;
+
+                SearchResponse searchResponse = await lavaNode.SearchAsync(searchType, argument);
+
+                if (searchType == SearchType.YouTubeMusic && (searchResponse.Status == SearchStatus.NoMatches ||
+                                                              searchResponse.Status == SearchStatus.LoadFailed ||
+                                                              searchResponse.Tracks.Count == 0))
+                {
+                    searchResponse = await lavaNode.SearchAsync(SearchType.YouTube, argument);
+                }
+
+                if (searchResponse.Status == SearchStatus.NoMatches || searchResponse.Tracks.Count == 0)
+                {
+                    await ReplyAsync($"No matches foundfor {argument}");
+                    return;
+                }
+
+                if (searchResponse.Status == SearchStatus.LoadFailed)
+                {
+                    await ReplyAsync($"Error playing {argument}");
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(searchResponse.Playlist.Name))
+                {
+                    await ReplyAsync($"Queuing Playlist {searchResponse.Playlist.Name}");                   
+                    foreach (var plTrack in searchResponse.Tracks)
+                    {                
+                        await audioService.ProcessTrack(plTrack, user, Context.Channel as ITextChannel);
+                     
+                    }
+                    await Queue();
                 }
                 else
                 {
-                    Console.WriteLine($"Found a matching track to url. Selecting {track.Title}");
+                    var track = searchResponse.Tracks.FirstOrDefault();
+                    var state = audioService.WillQueue ? "Queuing" : "Playing";
+
+                    await ReplyAsync($"{state} {track.Title} - {track.Author} - {track.Duration}");
+                    await audioService.ProcessTrack(track, user, Context.Channel as ITextChannel);
                 }
             }
-            else
+            catch(Exception e)
             {
-                track = searchResults.Tracks.FirstOrDefault();
-                Console.WriteLine($"Searched by song name. Selecting {track.Title}");
-            }
-            var state = audioService.WillQueue ? "Queuing" : "Playing";
-
-            await ReplyAsync($"{state} {track.Title} - {track.Author} - {track.Duration}");
-            await audioService.ProcessTrack(track);
+                await ReplyAsync($"Error playing {argument}");
+                Console.WriteLine(e);
+            }            
         }
 
         [Command("playlocal", RunMode = RunMode.Async)]
         [Alias("pl")]
         public async Task PlayLocal([Remainder] string argument)
         {
+            var user = Context.User as IVoiceState;
+
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(argument))
             {
                 await ReplyAsync("Song name cannot be empty");
@@ -129,15 +150,30 @@ namespace OuterHeavenBot.Modules
                 var state = audioService.WillQueue ? "Queuing" : "Playing";
 
                 await ReplyAsync($"{state} {track.Title} - {track.Author} - {track.Duration}");
-                await audioService.ProcessTrack(track);           
+                await audioService.ProcessTrack(track,user, Context.Channel as ITextChannel);           
             }
         }
 
         [Command("pause", RunMode = RunMode.Async)]
         [Alias("pa")]
         public async Task Pause()
-        { 
-           if(await audioService.ChangePauseState())
+        {
+            var user = Context.User as IVoiceState;
+
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
+
+            var state = await audioService.ChangePauseState();                
+            if (state == PlayerState.Paused || state == PlayerState.Playing)
             {
                 await ReplyAsync($"Player is now {audioService.CurrentState}");
             }
@@ -150,11 +186,25 @@ namespace OuterHeavenBot.Modules
         [Command("skip", RunMode = RunMode.Async)]
         [Alias("sk")]
         public async Task Skip()
-        { 
+        {
+            var user = Context.User as IVoiceState;
+
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
+
             if (!string.IsNullOrWhiteSpace(audioService.CurrentTrackName))
             {
-                await audioService.Skip();
-                await ReplyAsync($"Skipping - {audioService.CurrentTrackName}"); 
+                await ReplyAsync($"Skipping - {audioService.CurrentTrackName}");
+                await audioService.Skip();                
             }
             else
             {
@@ -166,7 +216,20 @@ namespace OuterHeavenBot.Modules
         [Alias("cq")]
         public async Task ClearQ([Remainder]int? index = null)
         {
-           
+            var user = Context.User as IVoiceState;
+
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
+
             if (!audioService.activeLavaPlayer?.Queue.Any() ?? true)
             {
                 await ReplyAsync("Que is currently empty!");
@@ -175,7 +238,7 @@ namespace OuterHeavenBot.Modules
 
             if (index.HasValue)
             {
-                if (index.Value  > 0 && index.Value  < audioService.activeLavaPlayer?.Queue.Count-1)
+                if (index.Value   > 0 && index.Value -1  < audioService.activeLavaPlayer?.Queue.Count)
                 {
                     var trackToKill = audioService.activeLavaPlayer.Queue.ElementAt(index.Value - 1);
                     audioService.activeLavaPlayer.Queue.Remove(trackToKill);
@@ -183,7 +246,7 @@ namespace OuterHeavenBot.Modules
                 }
                 else
                 {
-                    await ReplyAsync($"Invalid index. Please enter a value between 1 - {audioService.activeLavaPlayer?.Queue.Count - 1}");
+                    await ReplyAsync($"Invalid index. Please enter a value between 1 - {audioService.activeLavaPlayer?.Queue.Count}");
                 }
             }
             else
@@ -198,6 +261,19 @@ namespace OuterHeavenBot.Modules
         [Alias("ff")]
         public async Task FastForward(int seconds)
         {
+            var user = Context.User as IVoiceState;
+
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
 
             var player = audioService.activeLavaPlayer;
             if(player?.Track == null)
@@ -230,7 +306,19 @@ namespace OuterHeavenBot.Modules
         [Alias("rw")]
         public async Task Rewind(int seconds)
         {
+            var user = Context.User as IVoiceState;
 
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
             var player = audioService.activeLavaPlayer;
             if (player?.Track == null)
             {
@@ -256,7 +344,20 @@ namespace OuterHeavenBot.Modules
         [Command("goto", RunMode = RunMode.Async)]
         [Alias("gt")]
         public async Task GoTo(string time)
-        { 
+        {
+            var user = Context.User as IVoiceState;
+
+            if (user == null)
+            {
+                await ReplyAsync("You must be in a voice channel for this command");
+                return;
+            }
+
+            if (audioService.IsPlayerInAnotherChannel(user))
+            {
+                await ReplyAsync("You must be in the same channel as the bot for this command");
+                return;
+            }
             var player = audioService.activeLavaPlayer;
             if (player?.Track == null)
             {
@@ -290,7 +391,7 @@ namespace OuterHeavenBot.Modules
             var track = audioService.activeLavaPlayer.Track;
             if (track != null)
             {
-                await ReplyAsync($"Current track: {track.Title} - {track.Author} - {track.Duration} - {track.Url}");
+                await ReplyAsync($"Current track: {track.Title} - {track.Author} - {audioService.CurrentTrackTimeRemaining} - {track.Url}");
             }
             else
             {
@@ -310,22 +411,54 @@ namespace OuterHeavenBot.Modules
                 {
                     Title = "Song Queue",
                     Color = Color.LighterGrey,
-                    Fields = new List<EmbedFieldBuilder>()
+                    Fields = new List<EmbedFieldBuilder>(),                   
                 };
 
-                var info = quedSongs.Select((x, y) => new { i = (y + 2).ToString(), t = x.Title }).ToList();
+                var info = quedSongs.Select((x, y) => new { i = (y + 1).ToString(), t = CleanSongTitle(x.Title,x.Author), duration = x.Duration }).ToList();
 
-                var indexString = $"1{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.i).ToList())}";
-                var songString = $"{audioService.CurrentTrackName}{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.t).ToList())}";
-
+                var indexString = $"{string.Join(Environment.NewLine, info.Select(x => x.i).ToList())}";
+                var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.t).ToList())}";
+                var durationString = $"{string.Join(Environment.NewLine, info.Select(x => x.duration).ToList())}";
                 embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = indexString  });
                 embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = songString });
+                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Duration", Value = durationString });
+
+                embedBuilder.WithFooter(new EmbedFooterBuilder() { 
+                 Text = $"Current - {audioService.CurrentTrackName} Duration - {audioService.CurrentTrackTimeRemaining}"+"" +
+                 $"{Environment.NewLine}Total Queue Duration - {info.Select(x=>x.duration).ToList().Aggregate((x,y)=>x+y)}"
+                });
                 await ReplyAsync(null, false, embedBuilder.Build());
             }
             else
             {
                 await ReplyAsync("No songs currently in queue");
             }
+        }
+
+        private string CleanSongTitle(string title,string author)
+        {
+            if (title.Length < 42)
+            {
+                return title;
+            }
+            else
+            {
+               var cleanedTitle = title.Replace(author, "")
+                                    .Replace("|", " ")
+                                    .Replace("-", " ")
+                                    .Replace(",", " ")
+                                    .Replace("(", " ")
+                                    .Replace(")", " ")
+                                    .Replace("  ", " ");  
+                if (cleanedTitle.Length > 42)
+                {
+                    return cleanedTitle.Substring(0,39) + "...";
+                }
+                else
+                {
+                    return cleanedTitle;
+                }
+            }             
         }
     }
 }

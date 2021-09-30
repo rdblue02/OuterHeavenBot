@@ -23,6 +23,8 @@ namespace OuterHeavenBot.Services
         IConfiguration config;
         LavaNode lavaNode;
         AudioService audioService;
+        private Stopwatch applicationTimer = new Stopwatch();
+        TimeSpan lastTimeUpdated;
         public DiscordMusicBotInitializer(DiscordSocketClient client,
                                          CommandHandler<DiscordSocketClient> commandHandler,
                                          IConfiguration config,
@@ -41,9 +43,10 @@ namespace OuterHeavenBot.Services
             }
             this.audioService = audioService;
             client.Ready += Client_Ready;
-         
-             
+            audioService.Initialize(lavaNode);
+            applicationTimer.Start();
         }
+
         private async Task Client_Ready()
         {
             if (!lavaNode.IsConnected)
@@ -54,10 +57,6 @@ namespace OuterHeavenBot.Services
                     lavaNode.OnTrackException += LavaNode_OnTrackException;
                     lavaNode.OnWebSocketClosed += LavaNode_OnWebSocketClosed;
                     lavaNode.OnTrackStuck += LavaNode_OnTrackStuck;
-
-                    //we can do this because only one server plans to use the player.
-                    var clientGuild = client.Guilds.FirstOrDefault() as IGuild;
-                    this.audioService.SetPlayer(lavaNode.GetPlayer(clientGuild));
                 }
                 catch (Exception e)
                 {
@@ -97,18 +96,39 @@ namespace OuterHeavenBot.Services
 
         private async Task LavaNode_OnTrackEnded(Victoria.EventArgs.TrackEndedEventArgs arg)
         {
-            if (arg.Reason != TrackEndReason.Stopped && arg.Reason != TrackEndReason.Replaced)
+            var player = arg.Player;
+           
+            if (player?.Queue?.Any() ?? false)
             {
-                var player = arg.Player;
-                if (player.Queue.Any())
+                if (arg.Reason != TrackEndReason.Stopped && arg.Reason != TrackEndReason.Cleanup)
                 {
                     player.Queue.TryDequeue(out LavaTrack next);
                     await player.TextChannel.SendMessageAsync(
                     $"Now playing: {next.Title} - {next.Author} - {next.Duration}");
                     await player.PlayAsync(next);
                 }
-            }        
+            }
+            else
+            {
+                lastTimeUpdated = applicationTimer.Elapsed;
+                await Task.Run(() => CheckForIdelDisconnect());
+            }
+                 
         }
+         
+        private void CheckForIdelDisconnect()
+        {
+            while (audioService.activeLavaPlayer != null &&
+                  audioService.activeLavaPlayer.PlayerState != PlayerState.Playing && 
+                  audioService.activeLavaPlayer.VoiceChannel != null)
+            {
+                if(applicationTimer.Elapsed-lastTimeUpdated> TimeSpan.FromMinutes(5))
+                {
+                    lavaNode.LeaveAsync(audioService.activeLavaPlayer.VoiceChannel);
+                }
+            }
+        }
+
         public async Task<DiscordSocketClient> Initialize()
         {        
             var startTasks = new List<Task>()

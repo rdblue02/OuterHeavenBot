@@ -1,4 +1,6 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Commands;
+using Discord.WebSocket;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,15 +10,13 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Victoria;
-using Victoria.Enums; 
+using Victoria.Enums;
 namespace OuterHeavenBot.Services
 {
     public class AudioService
     {
-        private Stopwatch applicationTimer = new Stopwatch();
-
-
-        public LavaPlayer activeLavaPlayer { get; private set; } 
+ 
+        public LavaPlayer activeLavaPlayer { get; private set; }
         public TimeSpan LavaPlayerIdelTime = TimeSpan.FromSeconds(0);
         public bool ClippiePlaying { get; set; }
         public bool BlockClippies { get; private set; }
@@ -24,58 +24,71 @@ namespace OuterHeavenBot.Services
                 activeLavaPlayer?.PlayerState == PlayerState.Paused);
         public PlayerState CurrentState => activeLavaPlayer?.PlayerState ?? PlayerState.None;
         public string CurrentTrackName => activeLavaPlayer?.Track?.Title;
-        public void SetPlayer(LavaPlayer player)
+        public string CurrentTrackTimeRemaining => $"{activeLavaPlayer?.Track?.Position} | {activeLavaPlayer?.Track?.Duration}"; 
+       
+        private LavaNode lavaNode;
+        public void Initialize(LavaNode lavaNode)
         {
-            if(player != null)
-            {
-                this.activeLavaPlayer = player;
-            }
-        }
-        public TimeSpan GetElapsedTime()
-        {
-            return applicationTimer.Elapsed;
+            this.lavaNode = lavaNode;
         }
 
-        public async Task ProcessTrack(LavaTrack lavaTrack)
-        {         
-            if(WillQueue)
+        public async Task<AudioActionResult> ProcessTrack(LavaTrack lavaTrack, IVoiceState requester ,ITextChannel textChannel)
+        { 
+           if(this.activeLavaPlayer == null || 
+              this.activeLavaPlayer.VoiceChannel?.Name != requester.VoiceChannel.Name)
+           {      
+               this.activeLavaPlayer = await lavaNode.JoinAsync(requester.VoiceChannel, textChannel);      
+           }
+
+            if (WillQueue)
             {
                 this.activeLavaPlayer.Queue.Enqueue(lavaTrack);
+                return AudioActionResult.Queing;
             }
             else
             {
-              await activeLavaPlayer?.PlayAsync(lavaTrack);
+                await activeLavaPlayer?.PlayAsync(lavaTrack);
             }
-        }    
-    
-        public async Task<bool> ChangePauseState()
+            return AudioActionResult.Playing;
+        }
+
+        public bool IsPlayerInAnotherChannel(IVoiceState context)
         {
-            if(CurrentState == PlayerState.Paused)
-            {
-             await  this.activeLavaPlayer.PauseAsync();
-                return true;
-            }
-            else if(CurrentState == PlayerState.Playing)
+            return activeLavaPlayer != null &&
+                    
+                   activeLavaPlayer?.VoiceChannel?.Name != context?.VoiceChannel?.Name &&
+                   (activeLavaPlayer?.Track != null || activeLavaPlayer?.PlayerState == PlayerState.Playing);
+        }
+
+        public async Task<PlayerState> ChangePauseState()
+        {
+            if (CurrentState == PlayerState.Paused)
             {
                 await this.activeLavaPlayer.ResumeAsync();
-                return true;
+                return this.activeLavaPlayer.PlayerState;
+            }
+           else if (CurrentState == PlayerState.Playing)
+            {
+                await this.activeLavaPlayer.PauseAsync();
+                return this.activeLavaPlayer.PlayerState;
             }
             else
             {
-                return false;
-            }
+                return this.activeLavaPlayer.PlayerState; 
+            }        
         }
-        public async Task Skip()
+        public async Task<string> Skip()
         {
+            string current = "";
             if (this.activeLavaPlayer.Queue.Any())
             {
-              await  this.activeLavaPlayer.SkipAsync();
+              current = (await this.activeLavaPlayer.SkipAsync()).Current?.Title;
             }
             else
             {
-              await this.activeLavaPlayer.StopAsync();
+                await this.activeLavaPlayer.StopAsync();
             }
-        }        
-    
+            return current;
+        }      
     }
 }
