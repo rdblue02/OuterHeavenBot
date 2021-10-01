@@ -1,39 +1,60 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenBot.Modules;
+using OuterHeavenBot.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-
+using Victoria;
 namespace OuterHeavenBot.Command
 {
-    
-    public class CommandHandler
+    public class CommandHandler<T>  
     {
         private readonly DiscordSocketClient client;
         private readonly CommandService commands;
         private readonly IServiceProvider serviceProvider;
-        private readonly ICommandOptions commandOptions;
-        public CommandHandler(DiscordSocketClient client, 
-                             CommandService commands, 
-                             IServiceProvider serviceProvider,
-                             ICommandOptions options)
-        { 
+        private const char Prefix = '~';
+
+        public CommandHandler(DiscordClippieClient client,
+                             CommandService commands,
+                             IServiceProvider serviceProvider)
+        {
             this.commands = commands;
             this.client = client;
             this.serviceProvider = serviceProvider;
-            this.commandOptions = options ?? new DefaultCommandOptions();
-           
+          
+        }
+        public CommandHandler(DiscordSocketClient client,
+                             CommandService commands,
+                             IServiceProvider serviceProvider)
+        {
+            this.commands = commands;
+            this.client =  client;
+            this.serviceProvider = serviceProvider;
+
         }
         public async Task InstallCommandsAsync()
         {
             // Hook the MessageReceived event into our command handler
             client.MessageReceived += HandleCommandAsync;
          
-            await commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
-                                            services: serviceProvider);
+            if(typeof(T) == typeof(DiscordSocketClient))
+            {                
+                await commands.AddModuleAsync(typeof(GeneralCommands), serviceProvider);
+                await commands.AddModuleAsync(typeof(MusicCommands), serviceProvider);
+            }
+            else if(typeof(T) == typeof(DiscordClippieClient))
+            {
+                await commands.AddModuleAsync(typeof(ClippieCommands), serviceProvider);
+            }
+            else
+            {
+                throw new InvalidOperationException($"type {typeof(T).Name} is not valid in this context. T must be type {nameof(DiscordSocketClient)} or {nameof(DiscordClippieClient)}");
+            }
+
         }
         private async Task HandleCommandAsync(SocketMessage messageParam)
         {
@@ -45,9 +66,8 @@ namespace OuterHeavenBot.Command
             int argPos = 0;
 
             // Determine if the message is a command based on the prefix and make sure no bots trigger commands
-            if (!(message.HasCharPrefix(commandOptions.Prefix, ref argPos) ||
-                message.HasMentionPrefix(client.CurrentUser, ref argPos)) ||
-                message.Author.IsBot || commandOptions.RequirementsToExecute.Any(x=>!x.Invoke(message)))
+            if (!(message.HasCharPrefix(Prefix, ref argPos) ||
+                message.HasMentionPrefix(client.CurrentUser, ref argPos)))
                 return;
 
             // Create a WebSocket-based command context based on the message
@@ -57,15 +77,15 @@ namespace OuterHeavenBot.Command
             // created, along with the service provider for precondition checks.
             try
             {
-               await commands.ExecuteAsync(
-               context: context,
-               argPos: argPos,
-               services: serviceProvider);
+                await commands.ExecuteAsync(
+                context: context,
+                argPos: argPos,
+                services: serviceProvider);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine(e);
             }
-        }           
+        }
     }
 }

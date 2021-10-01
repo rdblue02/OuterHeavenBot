@@ -14,4 +14,14 @@ namespace OuterHeavenBot
         ogg,
         binary
     }
+
+    public enum AudioActionResult
+    {
+        ChannelJoined,
+        Playing,
+        Queing,
+        InAnotherChannel,
+        NotConnected,
+        Error
+    }
 }

@@ -10,11 +10,19 @@ namespace OuterHeavenBot
 {
     public static class Helpers
     {
-        /// <summary>
-        /// Decompresses the string.
-        /// </summary>
-        /// <param name="compressedText">The compressed text.</param>
-        /// <returns></returns>
+   
+        public static  Dictionary<string, List<FileInfo>> GetAudioFiles()
+        {
+            var directoryFileList = new Dictionary<string, List<FileInfo>>();
+            var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\clips").GetDirectories();
+            foreach (var directory in directories)
+            {
+                var fileNames = directory.GetFiles().ToList();
+                directoryFileList.Add(directory.Name, fileNames);
+            }
+            return  directoryFileList;
+        }
+
         public static string DecompressStringFromStream(Stream compressed)
         {
             
@@ -26,7 +34,7 @@ namespace OuterHeavenBot
             }
 
             return Encoding.UTF8.GetString(gZipBuffer);
-
         }
     }
+
 }
