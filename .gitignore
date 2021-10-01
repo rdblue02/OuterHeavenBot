@@ -4,3 +4,5 @@
 /.vs
 /OuterHeavenBot/appsettings.json
 /OuterHeavenBot/Properties/PublishProfiles
+/OuterHeavenBot/Lavalink/logs
+/OuterHeavenBot/Lavalink/Lavalink.jar
