@@ -100,20 +100,25 @@ namespace OuterHeavenBot.Services
            
             if (player?.Queue?.Any() ?? false)
             {
-                if (arg.Reason != TrackEndReason.Stopped && arg.Reason != TrackEndReason.Cleanup)
-                {
-                    player.Queue.TryDequeue(out LavaTrack next);
-                    await player.TextChannel.SendMessageAsync(
-                    $"Now playing: {next.Title} - {next.Author} - {next.Duration}");
-                    await player.PlayAsync(next);
+                LavaTrack track = null;
+                
+                if (arg.Reason== TrackEndReason.Replaced )
+                { 
+                     track = player.Track;                      
                 }
+                if (arg.Reason == TrackEndReason.Finished)
+                {
+                    player.Queue.TryDequeue(out track);
+                    await player.PlayAsync(track);                    
+                }
+                string message = track != null ? $"Now playing: {track.Title} - {track.Author} - {track.Duration}" : "Stopped Playing";
+                await player.TextChannel.SendMessageAsync(message);
             }
             else
             {
                 lastTimeUpdated = applicationTimer.Elapsed;
                 await Task.Run(() => CheckForIdelDisconnect());
-            }
-                 
+            }      
         }
          
         private void CheckForIdelDisconnect()

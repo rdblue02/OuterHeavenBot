@@ -34,8 +34,8 @@ namespace OuterHeavenBot.Services
 
         public async Task<AudioActionResult> ProcessTrack(LavaTrack lavaTrack, IVoiceState requester ,ITextChannel textChannel)
         { 
-           if(this.activeLavaPlayer == null || 
-              this.activeLavaPlayer.VoiceChannel?.Name != requester.VoiceChannel.Name)
+           if(requester?.VoiceChannel!=null && (this.activeLavaPlayer == null || 
+              this.activeLavaPlayer?.VoiceChannel?.Name != requester.VoiceChannel.Name))
            {      
                this.activeLavaPlayer = await lavaNode.JoinAsync(requester.VoiceChannel, textChannel);      
            }

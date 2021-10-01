@@ -37,7 +37,7 @@ namespace OuterHeavenBot.Modules
                 }
                 var user = Context.User as IVoiceState;
 
-                if (user == null)
+                if (user == null || user?.VoiceChannel == null)
                 {
                     await ReplyAsync("You must be in a voice channel for this command");
                     return;
@@ -103,7 +103,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -160,7 +160,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -189,7 +189,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -218,7 +218,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -263,7 +263,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -308,7 +308,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -347,7 +347,7 @@ namespace OuterHeavenBot.Modules
         {
             var user = Context.User as IVoiceState;
 
-            if (user == null)
+            if (user == null || user?.VoiceChannel == null)
             {
                 await ReplyAsync("You must be in a voice channel for this command");
                 return;
@@ -388,6 +388,11 @@ namespace OuterHeavenBot.Modules
         [Alias("t")]
         public async Task GetCurrentTrack()
         {
+            if ((Context.Channel as ITextChannel) == null)
+            {
+                await ReplyAsync("You must be in the server for this command");
+                return;
+            }
             var track = audioService.activeLavaPlayer.Track;
             if (track != null)
             {
@@ -403,6 +408,12 @@ namespace OuterHeavenBot.Modules
         [Alias("q")]
         public async Task Queue()
         {
+            if ((Context.Channel as ITextChannel) == null)
+            {
+                await ReplyAsync("You must be in the server for this command");
+                return;
+            }
+
             var quedSongs = this.audioService.activeLavaPlayer.Queue;
 
             if (quedSongs!=null && quedSongs.Any())
@@ -416,15 +427,15 @@ namespace OuterHeavenBot.Modules
 
                 var info = quedSongs.Select((x, y) => new { i = (y + 1).ToString(), t = CleanSongTitle(x.Title,x.Author), duration = x.Duration }).ToList();
 
-                var indexString = $"{string.Join(Environment.NewLine, info.Select(x => x.i).ToList())}";
-                var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.t).ToList())}";
-                var durationString = $"{string.Join(Environment.NewLine, info.Select(x => x.duration).ToList())}";
+                var indexString = $"Playing{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.i).ToList())}";
+                var songString = $"{audioService?.CurrentTrackName}{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.t).ToList())}";
+                var durationString = $"{audioService?.activeLavaPlayer?.Track?.Duration}{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.duration).ToList())}";
                 embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = indexString  });
                 embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = songString });
                 embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Duration", Value = durationString });
 
-                embedBuilder.WithFooter(new EmbedFooterBuilder() { 
-                 Text = $"Current - {audioService.CurrentTrackName} Duration - {audioService.CurrentTrackTimeRemaining}"+"" +
+                 embedBuilder.WithFooter(new EmbedFooterBuilder() { 
+                 Text = $" Current song remaining duration - {audioService.CurrentTrackTimeRemaining}"+"" +
                  $"{Environment.NewLine}Total Queue Duration - {info.Select(x=>x.duration).ToList().Aggregate((x,y)=>x+y)}"
                 });
                 await ReplyAsync(null, false, embedBuilder.Build());
