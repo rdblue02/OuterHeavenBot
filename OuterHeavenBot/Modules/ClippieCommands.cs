@@ -124,7 +124,7 @@ namespace OuterHeavenBot.Modules
         }
 
         [Command("sounds", RunMode = RunMode.Async)]
-        [Alias("cs")]
+        [Alias("s")]
         public async Task SendUserAvailableSounds(string category = null)
         {
             var directories = Helpers.GetAudioFiles();
@@ -167,6 +167,5 @@ namespace OuterHeavenBot.Modules
                 return true;
             }
         }
-
     }
 }

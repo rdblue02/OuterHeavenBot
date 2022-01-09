@@ -2,6 +2,7 @@
 using Discord.Audio;
 using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenBot.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,9 +18,13 @@ namespace OuterHeavenBot.Modules
     public class GeneralCommands : ModuleBase<SocketCommandContext>
     {
         private LavaNode lavaNode;
-        public GeneralCommands(LavaNode lavaNode)
+        private CancellationTokenSource cancellationToken;
+        private AudioService audioService;
+        public GeneralCommands(LavaNode lavaNode,AudioService audioService,CancellationTokenSource cancellationToken)
         {
+            this.cancellationToken= cancellationToken;
             this.lavaNode = lavaNode;
+            this.audioService = audioService;
         }
 
         [Summary("Lists available commands")]
@@ -38,6 +43,7 @@ namespace OuterHeavenBot.Modules
                 "playlocal"    ,
                 "pause"        ,
                 "skip"         ,
+                "kill"         ,
                 "clearqueue"   ,
                 "fastforward"  ,
                 "rewind"       ,
@@ -56,6 +62,7 @@ namespace OuterHeavenBot.Modules
                 "pl" ,
                 "pa" ,
                 "sk" ,
+                "-"  ,
                 "cq" ,
                 "ff" ,
                 "rw" ,
@@ -72,6 +79,7 @@ namespace OuterHeavenBot.Modules
                 "none"                   ,
                 "name | url"      ,
                 "name | file path",
+                "none"                   ,
                 "none"                   ,
                 "none"                   ,
                 "index"                  ,
@@ -130,6 +138,21 @@ namespace OuterHeavenBot.Modules
             await ReplyAsync(null, false, embedBuilder.Build());
         }
 
+        [Command("kill", RunMode = RunMode.Async)]
+        public async Task Kill()
+        {
+            try
+            {
+                await Disconnect();
+                audioService.Dispose();
+                cancellationToken.Cancel();
+            }
+            finally
+            {
+
+            }
+           
+        }
 
         [Command("disconnect", RunMode = RunMode.Async)]
         [Alias("dc")]
@@ -145,14 +168,6 @@ namespace OuterHeavenBot.Modules
                 }
                 await lavaNode.DisconnectAsync();
             }
-        }
-
-        [Command("options")]
-        public async Task Options()
-        {
-
-        }
-    }
-
-
+        } 
+    } 
 }
