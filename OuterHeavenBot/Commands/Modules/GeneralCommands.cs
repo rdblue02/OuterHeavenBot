@@ -13,24 +13,53 @@ using System.Threading;
 using System.Threading.Tasks;
 using Victoria;
 
-namespace OuterHeavenBot.Modules
+namespace OuterHeavenBot.Commands.Modules
 { 
     public class GeneralCommands : ModuleBase<SocketCommandContext>
     {
-        private LavaNode lavaNode;
-        private CancellationTokenSource cancellationToken;
-        private AudioService audioService;
-        public GeneralCommands(LavaNode lavaNode,AudioService audioService,CancellationTokenSource cancellationToken)
+        private ILogger logger;
+        private MusicService musicService;
+        public GeneralCommands(Logger<GeneralCommands> logger,MusicService musicService)
         {
-            this.cancellationToken= cancellationToken;
-            this.lavaNode = lavaNode;
-            this.audioService = audioService;
+            this.musicService = musicService;
+            this.logger = logger;   
         }
 
         [Summary("Lists available commands")]
         [Command("help")]
         [Alias("h")]
         public async Task Help()
+        {
+            try
+            {
+                var embedBuilder = GetHelpMessage();
+                await ReplyAsync(null, false, embedBuilder.Build());
+            }
+            catch(Exception ex)
+            {
+                await ReplyAsync("Error getting help message");
+                logger.LogError($"Error getting help message:\n{ex.ToString()}");
+            }         
+        }
+
+
+        [Command("disconnect", RunMode = RunMode.Async)]
+        [Alias("dc")]
+        public async Task Disconnect()
+        {
+            try
+            {
+                await ReplyAsync("Stopping music bot");
+                await musicService.RequestDisconnect();
+            }
+            catch (Exception ex)
+            {
+                await ReplyAsync("Error stopping music bot");
+                logger.LogError($"Error stopping music bot:\n{ex.ToString()}");
+            }
+        }
+
+        private EmbedBuilder GetHelpMessage()
         {
             var commandList = new StringBuilder();
             var aliasList = new StringBuilder();
@@ -91,7 +120,7 @@ namespace OuterHeavenBot.Modules
                 "none"                   ,
                 "name | category" ,
                 "category"
-            }; 
+            };
 
             var descriptions = new List<string>()
             {
@@ -123,9 +152,9 @@ namespace OuterHeavenBot.Modules
             {
                 Title = "Outer Heaven Bot Help Info",
                 Color = Color.LighterGrey,
-                  
+
                 Fields = new List<EmbedFieldBuilder>() {
-              new EmbedFieldBuilder(){ IsInline= true, Name = "Command", Value= commandList }, 
+              new EmbedFieldBuilder(){ IsInline= true, Name = "Command", Value= commandList },
               new EmbedFieldBuilder(){ IsInline= true, Name = "Args",Value = commandArgsList },
               new EmbedFieldBuilder(){ IsInline= true, Name = "Description",Value= descriptionList },
               new EmbedFieldBuilder(){ IsInline= true, Name = "Alias",Value = aliasList },
@@ -135,39 +164,7 @@ namespace OuterHeavenBot.Modules
              },
             };
 
-            await ReplyAsync(null, false, embedBuilder.Build());
+            return embedBuilder;
         }
-
-        [Command("kill", RunMode = RunMode.Async)]
-        public async Task Kill()
-        {
-            try
-            {
-                await Disconnect();
-                audioService.Dispose();
-                cancellationToken.Cancel();
-            }
-            finally
-            {
-
-            }
-           
-        }
-
-        [Command("disconnect", RunMode = RunMode.Async)]
-        [Alias("dc")]
-        public async Task Disconnect()
-        {
-            await ReplyAsync("Stopping music bot");
-            if (lavaNode.HasPlayer(Context.Guild))
-            {
-                var player =  lavaNode.GetPlayer(Context.Guild);
-                if (player != null)
-                {
-                    await lavaNode.LeaveAsync(player.VoiceChannel);
-                }
-                await lavaNode.DisconnectAsync();
-            }
-        } 
     } 
 }
