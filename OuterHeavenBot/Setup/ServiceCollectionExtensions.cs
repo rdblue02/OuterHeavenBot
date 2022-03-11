@@ -18,8 +18,9 @@ namespace OuterHeavenBot.Setup
          
         public static IServiceCollection AddBotSettings(this IServiceCollection services)
         {
+            var configName = System.Diagnostics.Debugger.IsAttached ? "appsettings.Development.json" : "appsettings.json";
             IConfiguration config = new ConfigurationBuilder()
-           .AddJsonFile("appsettings.json")
+           .AddJsonFile(configName)
            .AddEnvironmentVariables()
            .Build();
 

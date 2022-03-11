@@ -2,7 +2,6 @@
 /OuterHeavenBot/bin
 /OuterHeavenBot/obj
 /.vs
-/OuterHeavenBot/appsettings.json
 /OuterHeavenBot/Properties/PublishProfiles
 /OuterHeavenBot/Lavalink/jdk-17_windows-x64_bin.exe
 /OuterHeavenBot/Lavalink/Lavalink.jar
