@@ -21,6 +21,6 @@ namespace OuterHeavenBot.Commands
         
         }
          
-        public async Task ApplyCommands() => await this.InstallCommandsAsync(new List<Type>() { (typeof(MusicCommands)) });
+        public async Task ApplyCommands() => await this.InstallCommandsAsync(new List<Type>() { typeof(MusicCommands),typeof(GeneralCommands) });
     }
 }

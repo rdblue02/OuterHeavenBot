@@ -44,5 +44,5 @@ logging:
   path: ./logs/
 
   level:
-    root: DEBUG
-    lavalink: DEBUG
+    root: INFO
+    lavalink: INFO

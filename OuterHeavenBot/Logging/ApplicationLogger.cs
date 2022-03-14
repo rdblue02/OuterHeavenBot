@@ -29,7 +29,9 @@ namespace OuterHeavenBot.Logging
         {
             if (IsEnabled(logLevel))
             {
-                var logMessage = $"{DateTime.Now.ToString("T")}|{name}|{logLevel}| {formatter(state, exception)}";
+                var time = DateTime.Now.ToString("T");              
+                
+                var logMessage = $"{time}|{name}|{logLevel}| {formatter(state, exception)}";
                 OnLog?.Invoke(this, new ApplicationLogEvent(logMessage));
             }    
         }                    

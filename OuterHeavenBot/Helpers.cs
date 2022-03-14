@@ -1,4 +1,6 @@
 ﻿using Discord;
+using Discord.Commands;
+using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,5 +61,12 @@ namespace OuterHeavenBot
             }
         }
          
+        public static IVoiceChannel? ToVoiceChannel(this SocketCommandContext? socketContext)=>
+             (socketContext?.User as IVoiceState)?.VoiceChannel;
+        public static ITextChannel? ToTextChannel(this SocketCommandContext? socketContext) =>
+             (socketContext?.Channel as ITextChannel);
+        public static bool InVoiceChannel(this SocketCommandContext context) =>
+            (context?.User as IVoiceState)?.VoiceChannel != null;
+           
     }
 }

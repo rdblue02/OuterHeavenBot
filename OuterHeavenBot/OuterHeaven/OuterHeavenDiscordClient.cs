@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace OuterHeavenBot.Clients
 {
@@ -18,7 +19,7 @@ namespace OuterHeavenBot.Clients
         private readonly ILogger logger;
         private readonly BotSettings botSettings; 
         private readonly List<string> requiredLavaLinkFiles;
-        private const string lavalinkProcessName = "java";
+        private const string lavalinkProcessName = "javaw";
         private const string lavalinkStartFile = "Lavalink.jar";
         public OuterHeavenDiscordClient(ILogger<OuterHeavenDiscordClient> logger,
                                         BotSettings botSettings)
@@ -32,11 +33,11 @@ namespace OuterHeavenBot.Clients
          
         public async Task InitializeAsync()
         {
-           // var lavaLinkTask =  StartLavaLinkAsync();
+            
             await this.LoginAsync(TokenType.Bot, botSettings.OuterHeavenBotToken);
             await this.SetGameAsync("|~h for more info", null, ActivityType.Playing);
-          
-          //  await lavaLinkTask;
+
+            await StartLavaLinkAsync();
             await this.StartAsync();
 
         }
@@ -47,36 +48,46 @@ namespace OuterHeavenBot.Clients
         }
         private async Task StartLavaLinkAsync()
         {
-            var lavaLinkFiles = new DirectoryInfo(Directory.GetCurrentDirectory()).GetFiles("*",SearchOption.AllDirectories)
+            var directory = GetExecutingDirectory();
+            var lavaLinkFiles = directory.GetFiles("*", SearchOption.AllDirectories)
                                                                                   .Where(file => requiredLavaLinkFiles.Any(requiredFile => file.Name.Contains(requiredFile)))
-                                                                                  .ToList();
-            //need lavalink to run music bot. This means we are missing a file.
-            if (lavaLinkFiles.Count != this.requiredLavaLinkFiles.Count)
+                                                                                  .ToList(); 
+            foreach (var requiredFileName in requiredLavaLinkFiles)
             {
-                throw new InvalidOperationException($"Missing required files {string.Join(" ,", lavaLinkFiles.Where(x => !requiredLavaLinkFiles.Any(y => x.Name.Contains(y))).Select(x => x.Name))}");
-            }
+                //need lavalink to run music bot. This means we are missing a file.
+                if (!lavaLinkFiles.Any(x => x.FullName.Contains(requiredFileName)))
+                {
+                    throw new InvalidOperationException($"Missing required file {requiredFileName}");
+                }
 
+            }
+           
             //make sure there are no current laval link processes running.
             KillLavalink();
              
             logger.LogInformation("Starting lavalink process");
-            var lavalinkFilePath = lavaLinkFiles.FirstOrDefault(x => x.FullName.Contains(lavalinkStartFile))?.FullName;
+            var lavalinkFile = lavaLinkFiles.FirstOrDefault(x => x.FullName.Contains(lavalinkStartFile));
+            if (string.IsNullOrEmpty(lavalinkFile?.FullName))
+            {
+                throw new InvalidOperationException($"Missing required file {lavalinkStartFile}");
+            }
+            else
+            {
+                logger.LogInformation($"Using lavalink file at the following path: \n{lavalinkFile.FullName}");
+            }
+
             var lavaLinkProcess = new Process();
             lavaLinkProcess.StartInfo.UseShellExecute = true;
             lavaLinkProcess.StartInfo.CreateNoWindow = false;
-            lavaLinkProcess.StartInfo.WorkingDirectory = Directory.GetCurrentDirectory();
-            lavaLinkProcess.StartInfo.FileName = @"C:\Program Files\Microsoft\jdk-11.0.12.7-hotspot\bin\javaw";
-            lavaLinkProcess.StartInfo.Arguments = $"-jar {lavalinkFilePath}";
+            lavaLinkProcess.StartInfo.WorkingDirectory = lavalinkFile.DirectoryName;
+            lavaLinkProcess.StartInfo.FileName = lavalinkProcessName;
+            lavaLinkProcess.StartInfo.Arguments = $"-jar {lavalinkStartFile}";
             lavaLinkProcess.Start();
-            logger.LogInformation($"lavalink started with process id {lavaLinkProcess?.Id}, name {lavaLinkProcess?.ProcessName}");
-            lavaLinkProcess.WaitForExit(5000);
-            TimeSpan timeWaited = TimeSpan.Zero;
-            bool lavaLinkIsRunning = Process.GetProcesses().Any(x => x.ProcessName.ToLower().Contains(lavalinkProcessName));
-            if (!lavaLinkIsRunning)
-            {
-                throw new InvalidOperationException($"Unable to start lavalink");
-            }
-           
+
+            //give lavalink a second to start
+            await Task.Delay(1000);
+            logger.LogInformation($"lavalink started with process id {lavaLinkProcess?.Id}, name {lavaLinkProcess?.ProcessName}");       
+
         }
         private void KillLavalink()
         {
@@ -95,6 +106,13 @@ namespace OuterHeavenBot.Clients
         { 
             KillLavalink();
             return base.StopAsync();
+        }
+
+        private DirectoryInfo GetExecutingDirectory()
+        {
+            var dllPath = GetType().Assembly.Location;
+            var directoryPath = dllPath.Substring(0, dllPath.LastIndexOf('\\'));
+            return new DirectoryInfo(directoryPath);
         }
     }
 }

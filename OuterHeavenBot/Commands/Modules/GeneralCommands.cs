@@ -19,7 +19,7 @@ namespace OuterHeavenBot.Commands.Modules
     {
         private ILogger logger;
         private MusicService musicService;
-        public GeneralCommands(Logger<GeneralCommands> logger,MusicService musicService)
+        public GeneralCommands(ILogger<GeneralCommands> logger,MusicService musicService)
         {
             this.musicService = musicService;
             this.logger = logger;   
@@ -72,7 +72,6 @@ namespace OuterHeavenBot.Commands.Modules
                 "playlocal"    ,
                 "pause"        ,
                 "skip"         ,
-                "kill"         ,
                 "clearqueue"   ,
                 "fastforward"  ,
                 "rewind"       ,
@@ -81,7 +80,7 @@ namespace OuterHeavenBot.Commands.Modules
                 "queue"        ,
                 "disconnect"   ,
                 "clippie"      ,
-                "clippesounds"
+                "sounds"
             };
 
             var aliases = new List<string>()
@@ -91,7 +90,6 @@ namespace OuterHeavenBot.Commands.Modules
                 "pl" ,
                 "pa" ,
                 "sk" ,
-                "-"  ,
                 "cq" ,
                 "ff" ,
                 "rw" ,
@@ -100,7 +98,7 @@ namespace OuterHeavenBot.Commands.Modules
                 "q"  ,
                 "dc" ,
                 "c"  ,
-                "cs"
+                "s"
             };
 
             var commandArgs = new List<string>()
@@ -111,7 +109,6 @@ namespace OuterHeavenBot.Commands.Modules
                 "none"                   ,
                 "none"                   ,
                 "none"                   ,
-                "index"                  ,
                 "seconds"                ,
                 "seconds"                ,
                 "hh:mm:ss"               ,

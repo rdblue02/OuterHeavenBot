@@ -36,14 +36,12 @@ namespace OuterHeavenBot.Commands.Modules
                     return;
                 }
 
-                if(!await ValidateVoiceCommand()) return;
-
-                await musicService.RequestSong(argument, (this.Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel ?? throw new ArgumentNullException(nameof(Context.Channel)));
+                await musicService.RequestSong(argument,Context);
             }
             catch (Exception e)
             {
                 await ReplyAsync($"Error playing {argument}");
-                logger.LogError($"Error playing {argument}:\n{e.ToString()}");
+                logger.LogError($"Error playing {argument}:\n{e}");
             }
         }
 
@@ -53,11 +51,9 @@ namespace OuterHeavenBot.Commands.Modules
         {
             try
             {
-                if (!await ValidateVoiceCommand(musicService.MusicBotPlayerState != MusicBotPlayerState.Paused)) return;
+              var result =  await musicService.ChangePauseState();
 
-                await musicService.ChangePauseState((Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
-
-                await ReplyAsync($"Player is now {musicService.MusicBotPlayerState}");
+                await ReplyAsync($"Player is now {result}");
             }
             catch(Exception e)
             {
@@ -71,9 +67,8 @@ namespace OuterHeavenBot.Commands.Modules
         public async Task Skip()
         {
             try
-            {
-                if (!await ValidateVoiceCommand(true)) return;
-                await musicService.RequestSkip((Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+            { 
+                await musicService.RequestSkip(Context);
             }
             catch(Exception e)
             {
@@ -88,9 +83,8 @@ namespace OuterHeavenBot.Commands.Modules
         {
             try
             {
-                if (!await ValidateVoiceCommand()) return;
-
-                await musicService.RequestQueueClear(index, (Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+              
+                await musicService.RequestQueueClear(index, Context);
             }
             catch (Exception e)
             {
@@ -104,16 +98,14 @@ namespace OuterHeavenBot.Commands.Modules
         public async Task FastForward(int seconds = 0)
         {
             try
-            {
-                if (!await ValidateVoiceCommand(true)) return;
-
+            { 
                 if (seconds <= 0)
                 {
                     await ReplyAsync($"Invalid fast forward duration {seconds}");
                     return;
                 }
 
-                await musicService.FastForward(seconds, (Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+                await musicService.FastForward(seconds,Context);
             }
             catch (Exception e)
             {
@@ -127,15 +119,13 @@ namespace OuterHeavenBot.Commands.Modules
         public async Task Rewind(int seconds)
         {
             try
-            {
-                if (!await ValidateVoiceCommand(true)) return;
-
+            { 
                 if (seconds <= 0)
                 {
                     await ReplyAsync($"Invalid rewind duration {seconds}");
                     return;
                 }
-                await musicService.RequestRewind(seconds, (Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+                await musicService.RequestRewind(seconds,Context);
             }
             catch (Exception e)
             {
@@ -149,8 +139,7 @@ namespace OuterHeavenBot.Commands.Modules
         public async Task GoTo(string time)
         {
             try
-            {
-                if (!await ValidateVoiceCommand(true)) return;
+            {              
 
                 if (!TimeSpan.TryParse(time, out TimeSpan timeResult))
                 {
@@ -158,7 +147,7 @@ namespace OuterHeavenBot.Commands.Modules
                     return;
                 }
 
-                await musicService.GoTo(timeResult, (Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+                await musicService.GoTo(timeResult, Context);
             }
             catch (Exception e)
             {
@@ -174,7 +163,7 @@ namespace OuterHeavenBot.Commands.Modules
         {
             try
             {
-                var trackInfo = musicService.GetCurrentTrackInfo((Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+                var trackInfo = musicService.GetCurrentTrackInfo();
                 await ReplyAsync(trackInfo);
             }
             catch (Exception e)
@@ -196,7 +185,7 @@ namespace OuterHeavenBot.Commands.Modules
                     return;
                 }
 
-                var quedSongs = this.musicService.GetAllTracks((Context.User as IVoiceState).VoiceChannel, Context.Channel as ITextChannel);
+                var quedSongs = this.musicService.GetAllTracks();
 
                 if (quedSongs.Any())
                 {
@@ -209,16 +198,18 @@ namespace OuterHeavenBot.Commands.Modules
 
                     var info = quedSongs.Select((track, y) => new { index = (y + 1).ToString(), title = CleanSongTitle(track.Title, track.Author), duration = track.Duration }).ToList();
 
-                    var indexString = $"Playing{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.index).ToList())}";
+                    var indexString = $"Playing{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.index).Skip(1).ToList())}";
                     var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.title).ToList())}";
                     var durationString = $"{string.Join(Environment.NewLine, info.Select(x => x.duration).ToList())}";
                     embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = indexString });
                     embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = songString });
                     embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Duration", Value = durationString });
 
-                    var footerText = quedSongs.Count > 1 ? $" Current song remaining duration - {quedSongs[0].Duration - quedSongs[0].Position}"
-                                                       : $" Current song remaining duration - {quedSongs[0].Duration - quedSongs[0].Position}{Environment.NewLine}" +
-                                                         $"Total Queue Duration - {info.Skip(1).Select(x => x.duration).ToList().Aggregate((x, y) => x + y)}";
+                    var footerText = quedSongs.Count > 1 ?
+                        $" Current song remaining duration - {quedSongs[0].Duration - quedSongs[0].Position}{Environment.NewLine}" +
+                                                         $"Total Queue Duration - {info.Skip(1).Select(x => x.duration).ToList().Aggregate((x, y) => x + y)}" :
+                        $" Current song remaining duration - {quedSongs[0].Duration - quedSongs[0].Position}";
+                                                       
                     embedBuilder.WithFooter(new EmbedFooterBuilder()
                     {
                         Text = footerText
@@ -252,6 +243,7 @@ namespace OuterHeavenBot.Commands.Modules
                                      .Replace("(", " ")
                                      .Replace(")", " ")
                                      .Replace("  ", " ");
+             
                 if (cleanedTitle.Length > 42)
                 {
                     return cleanedTitle.Substring(0, 39) + "...";
@@ -263,27 +255,6 @@ namespace OuterHeavenBot.Commands.Modules
             }
         }
 
-        public async Task<bool> ValidateVoiceCommand(bool requireSound = false)
-        {
-            var user = Context.User as IVoiceState;
-            bool valid = false;
-            if (user == null || user?.VoiceChannel == null)
-            {
-                await ReplyAsync("You must be in a voice channel for this command");
-            }
-            else if (this.musicService.MusicBotPlayerState == MusicBotPlayerState.Playing && user?.VoiceChannel.Id != musicService.CurrentChannelId)
-            {
-                await ReplyAsync("You must be in the same channel as the bot for this command");
-            }
-            else if (requireSound && this.musicService.MusicBotPlayerState != MusicBotPlayerState.Playing)
-            {
-                await ReplyAsync($"The bot isn't playing anything!");
-            }
-            else
-            {
-                valid = true;
-            }
-            return valid;
-        }
+      
     }
 }

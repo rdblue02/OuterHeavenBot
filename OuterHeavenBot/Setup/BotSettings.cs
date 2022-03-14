@@ -26,7 +26,7 @@ namespace OuterHeavenBot.Setup
         public int PollingMilliseconds { get; set; } = 1000;
         public int MaxDaysToSaveLogs { get; set; } = 10;
         public int MaxNumberOfLogFiles { get; set; } = 10;
-        public string LogDirectory { get; set; } = Directory.GetCurrentDirectory() + "\\Bin\\BotLogs\\";
+        public string LogDirectory { get; set; } = Directory.GetCurrentDirectory() + "\\BotLogs\\";
         public LogLevel Verbosity { get; set; } = LogLevel.Debug;
         public bool NotifyDev { get; set; }
     }
