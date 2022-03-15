@@ -1,28 +1,26 @@
 ﻿using Discord;
-using Discord.Audio;
 using Discord.Commands;
-using Discord.WebSocket;
 using OuterHeavenBot.Services;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
+using OuterHeavenBot.Setup;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Victoria;
+using System.IO.Compression;
+using Microsoft.Extensions.Options;
 
 namespace OuterHeavenBot.Commands.Modules
-{ 
+{
     public class GeneralCommands : ModuleBase<SocketCommandContext>
     {
         private ILogger logger;
         private MusicService musicService;
-        public GeneralCommands(ILogger<GeneralCommands> logger,MusicService musicService)
+        private BotSettings botSettings;
+        public GeneralCommands(ILogger<GeneralCommands> logger,
+                               MusicService musicService,
+                              IOptionsMonitor<BotSettings> config)
         {
             this.musicService = musicService;
-            this.logger = logger;   
+            this.logger = logger;  
+            this.botSettings = config.CurrentValue;
+            config.OnChange(updatedConfig => botSettings = updatedConfig);
         }
 
         [Summary("Lists available commands")]
@@ -58,6 +56,51 @@ namespace OuterHeavenBot.Commands.Modules
                 logger.LogError($"Error stopping music bot:\n{ex.ToString()}");
             }
         }
+
+        #region devcommands
+
+        //todo do I really want to run this async? 
+        //it might make sense to block for this to avoid issues.
+        [Command("requestlogs", RunMode = RunMode.Async)]
+        public async Task RequestLogs()
+        {           
+            try
+            {
+             var currentLogFile = new DirectoryInfo(botSettings.LoggingConfiguration.LogDirectory).GetFiles()
+                                                                                                  .OrderByDescending(x=>x.CreationTime)
+                                                                                                  .FirstOrDefault();
+                if(currentLogFile == null)
+                {
+                    await Context.User.SendMessageAsync("Error finding log file");
+                }
+                else
+                {
+                    var zipDirectoryName = currentLogFile.DirectoryName + "\\log_files";
+                    DirectoryInfo zipDirectory = !Directory.Exists(zipDirectoryName) ? Directory.CreateDirectory(zipDirectoryName):
+                                                                                       new DirectoryInfo(zipDirectoryName);                 
+
+                    var zipFileName = $"{currentLogFile.DirectoryName}\\{zipDirectory.Name}.zip";
+                    File.Copy(currentLogFile.FullName, $"{zipDirectory.FullName}\\{currentLogFile.Name}",true);
+
+                    ZipFile.CreateFromDirectory(zipDirectory.FullName,zipFileName);
+                                        
+                    await Context.User.SendFileAsync(zipFileName,"logs");
+                    await Task.Delay(100);
+
+                    File.Delete($"{zipDirectory.FullName}\\{currentLogFile.Name}");                   
+                    File.Delete(zipFileName);
+                    Directory.Delete(zipDirectoryName);
+                    logger.LogInformation($"Logs requested by user {Context.User.Username}. Sending log file {currentLogFile.Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Error retrieving logs:\n{ex.ToString()}");
+                await Context.User.SendMessageAsync($"Error retrieving logs:\n{ex}");
+            }
+        }
+       
+        #endregion
 
         private EmbedBuilder GetHelpMessage()
         {
