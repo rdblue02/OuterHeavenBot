@@ -6,22 +6,23 @@ using System.Threading.Tasks;
 
 namespace OuterHeavenBot
 {
-    public enum FileExtensions
+    public enum ClippliePlayerState
     {
-        txt,
-        xml,
-        mp3,
-        ogg,
-        binary
-    }
-
-    public enum AudioActionResult
-    {
-        ChannelJoined,
+        Available,
         Playing,
-        Queing,
-        InAnotherChannel,
-        NotConnected,
-        Error
+        Stopped,
+        Connecting,
+        Disconnecting,
+        Disconnected
     }
+    public enum MusicBotPlayerState
+    {
+        Available,
+        Playing,
+        Paused,
+        Stopped,
+        Connecting,
+        Disconnecting,
+        Disconnected
+    }   
 }

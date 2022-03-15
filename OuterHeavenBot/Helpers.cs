@@ -1,7 +1,8 @@
-﻿using System;
+﻿using Discord;
+using Discord.Commands;
+using Discord.WebSocket;
+using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,31 +11,62 @@ namespace OuterHeavenBot
 {
     public static class Helpers
     {
-   
-        public static  Dictionary<string, List<FileInfo>> GetAudioFiles()
+        public static void LogInfo(this ILogger logger, object logStatement)
         {
-            var directoryFileList = new Dictionary<string, List<FileInfo>>();
-            var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\clips").GetDirectories();
-            foreach (var directory in directories)
-            {
-                var fileNames = directory.GetFiles().ToList();
-                directoryFileList.Add(directory.Name, fileNames);
-            }
-            return  directoryFileList;
+            logger.Log(LogLevel.Information, logStatement?.ToString() ?? "null");
+        }
+        public static void LogError(this ILogger logger, object logStatement)
+        {
+            logger.Log(LogLevel.Error, logStatement?.ToString() ?? "null");
         }
 
-        public static string DecompressStringFromStream(Stream compressed)
+        public static LogLevel ToMicrosoftLogLevel(LogSeverity discordLogLevel)
         {
-            
-            byte[] gZipBuffer = new byte[(int)compressed.Length];
-
-            using (var gZipStream = new GZipStream(compressed, CompressionMode.Decompress))
+            switch (discordLogLevel)
             {
-                gZipStream.Read(gZipBuffer, 0, gZipBuffer.Length);
+                case LogSeverity.Critical:
+                    return LogLevel.Critical;
+                case LogSeverity.Error:
+                    return LogLevel.Error;
+                case LogSeverity.Warning:
+                    return LogLevel.Warning;
+                case LogSeverity.Info:
+                    return LogLevel.Information;
+                case LogSeverity.Verbose:
+                    return LogLevel.Debug;
+                case LogSeverity.Debug:
+                    return LogLevel.Trace;
+                default:
+                    return LogLevel.None;
             }
-
-            return Encoding.UTF8.GetString(gZipBuffer);
         }
+        public static LogSeverity ToDiscordLogLevel(LogLevel miscrosoftLogLevel)
+        {
+            switch (miscrosoftLogLevel)
+            {
+                case LogLevel.Critical:
+                    return LogSeverity.Critical;
+                case LogLevel.Error:
+                    return LogSeverity.Error;
+                case LogLevel.Warning:
+                    return LogSeverity.Warning;
+                case LogLevel.Information:
+                    return LogSeverity.Info;
+                case LogLevel.Debug:
+                    return LogSeverity.Verbose;
+                case LogLevel.Trace:
+                    return LogSeverity.Debug;
+                default:
+                    return LogSeverity.Critical;
+            }
+        }
+         
+        public static IVoiceChannel? ToVoiceChannel(this SocketCommandContext? socketContext)=>
+             (socketContext?.User as IVoiceState)?.VoiceChannel;
+        public static ITextChannel? ToTextChannel(this SocketCommandContext? socketContext) =>
+             (socketContext?.Channel as ITextChannel);
+        public static bool InVoiceChannel(this SocketCommandContext context) =>
+            (context?.User as IVoiceState)?.VoiceChannel != null;
+           
     }
-
 }
