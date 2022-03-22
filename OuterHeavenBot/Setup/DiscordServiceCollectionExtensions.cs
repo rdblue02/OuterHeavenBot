@@ -57,9 +57,9 @@ namespace OuterHeavenBot.Setup
                 LogSeverity = Discord.LogSeverity.Verbose,
                 Authorization = "0_9_21_2021",
                 ReconnectDelay = TimeSpan.FromSeconds(5),
-                ReconnectAttempts = 100,
+                ReconnectAttempts = 0,
                 EnableResume = true,
-                Port = 50223,
+                Port = 50224,
                 Hostname = "127.0.0.1",
                 SelfDeaf = true
             });

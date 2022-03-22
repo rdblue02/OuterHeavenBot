@@ -51,7 +51,7 @@ namespace OuterHeavenBot.Commands.Modules
         {
             try
             {
-              var result =  await musicService.ChangePauseState();
+               var result =  await musicService.ChangePauseState();
 
                 await ReplyAsync($"Player is now {result}");
             }
@@ -140,7 +140,6 @@ namespace OuterHeavenBot.Commands.Modules
         {
             try
             {              
-
                 if (!TimeSpan.TryParse(time, out TimeSpan timeResult))
                 {
                     await ReplyAsync($"Invalid time entry. Make sure to use hh:mm:ss format.");
@@ -153,8 +152,7 @@ namespace OuterHeavenBot.Commands.Modules
             {
                 await ReplyAsync($"Error going to position {time}");
                 logger.LogError($"Error going to position {time}:\n{e}");
-            }
-           
+            }           
         }
 
         [Command("trackInfo", RunMode = RunMode.Async)]

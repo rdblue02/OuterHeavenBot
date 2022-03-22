@@ -37,7 +37,7 @@ namespace OuterHeavenBot.Clients
 
         private Task ClippieDiscordClient_Log(LogMessage arg)
         {
-            logger.Log(Helpers.ToMicrosoftLogLevel(arg.Severity), $"{arg.Message}\n{arg.Exception}");
+            logger.Log(Helpers.ToMicrosoftLogLevel(arg.Severity), $"{arg.Message}{arg.Exception}");
             return Task.CompletedTask;
         }
     }

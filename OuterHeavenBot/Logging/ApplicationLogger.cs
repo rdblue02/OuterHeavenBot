@@ -25,13 +25,13 @@ namespace OuterHeavenBot.Logging
         public bool IsEnabled(LogLevel logLevel) =>
             logLevel >= _getCurrentConfig().LoggingConfiguration.Verbosity && logLevel < LogLevel.None;
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) 
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             if (IsEnabled(logLevel))
             {
-                var time = DateTime.Now.ToString("T");              
-                
-                var logMessage = $"{time}|{name}|{logLevel}| {formatter(state, exception)}";
+                var time = DateTime.Now.ToString("T").PadRight(11,' ');
+                var logLevelText = logLevel.ToString().PadRight(12,' ');    
+                var logMessage = $"{time} | {logLevelText} | {formatter(state, exception)}";
                 OnLog?.Invoke(this, new ApplicationLogEvent(logMessage));
             }    
         }                    

@@ -35,15 +35,14 @@ namespace OuterHeavenBot.Services
             discordClient.Ready += DiscordClient_Ready;
             discordClient.MessageReceived += DiscordClient_MessageReceived;
             discordClient.Disconnected += DiscordClient_Disconnected;
-            discordClient.Connected += DiscordClient_Connected;
         }
 
-        public async Task InitializeAsync()=> await this.discordClient.InitializeAsync();
-
-        private async Task DiscordClient_Connected()
+        public async Task InitializeAsync() 
         {
+            await this.discordClient.InitializeAsync();
             await clippieCommandHandler.ApplyCommands();
-        }
+        }  
+
         private Task DiscordClient_Ready()
         {
             this.botUserId = discordClient.CurrentUser.Id;

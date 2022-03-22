@@ -65,8 +65,10 @@ namespace OuterHeavenBot
              (socketContext?.User as IVoiceState)?.VoiceChannel;
         public static ITextChannel? ToTextChannel(this SocketCommandContext? socketContext) =>
              (socketContext?.Channel as ITextChannel);
-        public static bool InVoiceChannel(this SocketCommandContext context) =>
-            (context?.User as IVoiceState)?.VoiceChannel != null;
-           
+        public static bool InVoiceChannel(this SocketCommandContext context) 
+        {
+            var voiceState = (context?.User as IVoiceState);
+            return (voiceState != null && voiceState.VoiceChannel != null && !voiceState.VoiceChannel.Name.ToLower().Contains("afk"));         
+        }
     }
 }

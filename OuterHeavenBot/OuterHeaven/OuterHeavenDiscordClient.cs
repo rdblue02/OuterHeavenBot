@@ -27,25 +27,25 @@ namespace OuterHeavenBot.Clients
             this.requiredLavaLinkFiles= new List<string>() { "Lavalink.jar", "application.yml" }; 
             this.logger = logger;
             this.botSettings = botSettings;  
-            this.Log += OuterHeavenDiscordClient_Log;
-             
+            this.Log += OuterHeavenDiscordClient_Log;             
         }
          
         public async Task InitializeAsync()
         {
-            
             await this.LoginAsync(TokenType.Bot, botSettings.OuterHeavenBotToken);
             await this.SetGameAsync("|~h for more info", null, ActivityType.Playing);
 
-            await StartLavaLinkAsync();
+          // await StartLavaLinkAsync();
             await this.StartAsync();
 
         }
         private Task OuterHeavenDiscordClient_Log(LogMessage arg)
         {
-            logger.Log(Helpers.ToMicrosoftLogLevel(arg.Severity), $"{arg.Message}\n{arg.Exception}");
+            logger.Log(Helpers.ToMicrosoftLogLevel(arg.Severity), $"{arg.Message}{arg.Exception}");
             return Task.CompletedTask;
         }
+
+        //cant get this to work properly. Removing for now.
         private async Task StartLavaLinkAsync()
         {
             var directory = GetExecutingDirectory();
@@ -104,7 +104,7 @@ namespace OuterHeavenBot.Clients
         }
         public override Task StopAsync()
         { 
-            KillLavalink();
+            //KillLavalink();
             return base.StopAsync();
         }
 

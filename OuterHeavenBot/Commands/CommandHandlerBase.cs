@@ -30,6 +30,7 @@ namespace OuterHeavenBot.Commands
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             this.commands = new List<CommandInfo>();
             commandService.Log += CommandService_Log;
+ 
         }
 
         protected async Task InstallCommandsAsync(List<Type> types)
@@ -37,28 +38,38 @@ namespace OuterHeavenBot.Commands
             foreach(var type in types)
             {
                 var module = await commandService.AddModuleAsync(type, serviceProvider);
-              
+                
                 this.commands.AddRange(module.Commands);
-
             }
+            foreach (var command in this.commands)
+            {
+                logger.LogInfo($"Adding command {command.Name}");
+            }
+
+            logger.LogInfo($"Initialization of {this.GetType().Name} complete");
+
             this.IsInitialized = true;
         }
          
         public async Task HandleCommandAsync(DiscordSocketClient discordSocketClient, SocketUserMessage message)
         {
-            if(!IsInitialized)
-            {
-                throw new InvalidOperationException("Cannot accept command before being initialized");
-            }
-         
-            var argPos = GetCommandArgPos(discordSocketClient.CurrentUser, message);
-
-            if (argPos <1) return; 
-
-            var context = new SocketCommandContext(discordSocketClient, message);
-
             try
             {
+                if (!IsInitialized)
+                {
+                    throw new InvalidOperationException("Cannot accept command before being initialized");
+                }
+
+                var argPos = GetCommandArgPos(discordSocketClient.CurrentUser, message);
+
+                if (argPos < 1) 
+                {
+                    logger.LogError($"Invalid message {message?.Content} sent by {message?.Author?.Username}");
+                    return;
+                }
+
+                var context = new SocketCommandContext(discordSocketClient, message);
+                logger.LogInfo($"{discordSocketClient?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");
                 await commandService.ExecuteAsync(
                 context: context,
                 argPos: argPos,
@@ -66,13 +77,12 @@ namespace OuterHeavenBot.Commands
             }
             catch (Exception e)
             {
-                logger.LogError($"Unable to proccess command message{message?.ToString()}\n {e}");
+                logger.LogError($"Unable to proccess command message {message?.ToString()}\n {e}");
             }
         }
         public CommandInfo? GetCommandInfoFromMessage(SocketUserMessage message)
-        {
-           
-            if (string.IsNullOrEmpty(message.CleanContent)) return null;
+        {           
+            if (string.IsNullOrWhiteSpace(message?.CleanContent)) return null;
             var endOfCommand = message.CleanContent.IndexOf(' ');
 
             var content = message.CleanContent.Substring(0,endOfCommand>0? endOfCommand: message.CleanContent.Length).Replace(Prefix, '\0').Trim();

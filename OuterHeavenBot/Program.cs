@@ -18,7 +18,13 @@ try
         services.AddDiscord();
     })
    .Build();
-
+   
+    //removes quick edit from console so our logging does not freeze during Console.WriteLine();
+    var success = DisableConsoleQuickEdit.Disable();
+    if (!success)
+    {
+        Console.WriteLine("Unable to disable quick edit. If logging freezes in the console, press the escape key to resume it.");
+    }
     await host.RunAsync();
 }
 catch (Exception ex)

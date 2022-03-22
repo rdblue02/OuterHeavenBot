@@ -33,15 +33,24 @@ namespace OuterHeavenBot.Logging
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                await WriteLogsAsync(stoppingToken);
-                await Task.Delay(_currentConfig.PollingMilliseconds);
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    await WriteLogsAsync(stoppingToken);
+                    await Task.Delay(_currentConfig.PollingMilliseconds);
+                }
+                stoppingToken.ThrowIfCancellationRequested();
             }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+          
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
-        {
+        { 
             if (_loggersQueue.Any())
             {
                await WriteLogsAsync(cancellationToken);
@@ -67,6 +76,8 @@ namespace OuterHeavenBot.Logging
                 {
                     logTextBuilder.Append(logMessage + Environment.NewLine);
                 }
+
+                Console.Write(logTextBuilder);
 
                 var logFiles = new DirectoryInfo(_currentConfig.LogDirectory).GetFiles();
                 var currentLogFile = logFiles.FirstOrDefault(x => x.CreationTime.Date == todaysDate.Date);

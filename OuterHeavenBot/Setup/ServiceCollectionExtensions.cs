@@ -9,9 +9,11 @@ namespace OuterHeavenBot.Setup
     {
         public static ILoggingBuilder AddApplicationLogger(this ILoggingBuilder builder)
         {
+            builder.ClearProviders();
             builder.AddConfiguration();
             builder.SetMinimumLevel(LogLevel.Debug);
-            LoggerProviderOptions.RegisterProviderOptions<BotSettings,ApplicationLoggerProvider>(builder.Services);
+            
+            LoggerProviderOptions.RegisterProviderOptions<BotSettings,ApplicationLoggerProvider>(builder.Services);            
             builder.Services.AddSingleton<ILoggerProvider, ApplicationLoggerProvider>();       
             return builder;
         }
