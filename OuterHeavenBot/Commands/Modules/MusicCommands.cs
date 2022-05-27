@@ -95,11 +95,11 @@ namespace OuterHeavenBot.Commands.Modules
 
         [Command("fastforward", RunMode = RunMode.Async)]
         [Alias("ff")]
-        public async Task FastForward(int seconds = 0)
+        public async Task FastForward(int seconds = 10)
         {
             try
             { 
-                if (seconds <= 0)
+                if (seconds < 0)
                 {
                     await ReplyAsync($"Invalid fast forward duration {seconds}");
                     return;
@@ -116,11 +116,11 @@ namespace OuterHeavenBot.Commands.Modules
 
         [Command("rewind", RunMode = RunMode.Async)]
         [Alias("rw")]
-        public async Task Rewind(int seconds)
+        public async Task Rewind(int seconds = 10)
         {
             try
             { 
-                if (seconds <= 0)
+                if (seconds < 0)
                 {
                     await ReplyAsync($"Invalid rewind duration {seconds}");
                     return;

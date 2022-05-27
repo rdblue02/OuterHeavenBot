@@ -35,6 +35,13 @@ namespace OuterHeavenBot.Services
             discordClient.Ready += DiscordClient_Ready;
             discordClient.MessageReceived += DiscordClient_MessageReceived;
             discordClient.Disconnected += DiscordClient_Disconnected;
+            discordClient.Connected += DiscordClient_Connected;
+        }
+
+        private Task DiscordClient_Connected()
+        {
+            this.clippliePlayerState = ClippliePlayerState.Available;
+            return Task.CompletedTask;
         }
 
         public async Task InitializeAsync() 
@@ -69,7 +76,8 @@ namespace OuterHeavenBot.Services
 
             if (requestedCommand.Name.ToLower() == "clippie" &&
                 clippliePlayerState != ClippliePlayerState.Available)
-            {
+            { 
+
                 logger.LogWarning($"Clippie bot is currently in {clippliePlayerState} state.");
                 await userMessage.Channel.SendMessageAsync("Clippies are currently unavailable"); 
                 return;
@@ -132,7 +140,7 @@ namespace OuterHeavenBot.Services
                         await audioClient.StopAsync();
                     }
 
-                    await Task.Delay(100);
+                    await Task.Delay(50);
                     await voice.DisconnectAsync();
                 }
                 else
@@ -157,5 +165,6 @@ namespace OuterHeavenBot.Services
 
             return Task.CompletedTask;
         }
+
     }
 }

@@ -28,7 +28,7 @@ namespace OuterHeavenBot.ClippieExtensions
             }
             else if (fileDirectories.ContainsKey(contentName))
             {
-                clippie = fileDirectories[contentName][ClippieRandomizer.Next(0, fileDirectories.Count - 1)].FullName;
+                clippie = fileDirectories[contentName][ClippieRandomizer.Next(0, fileDirectories[contentName].Count - 1)].FullName;
             }
             else 
             {

@@ -61,49 +61,54 @@ namespace OuterHeavenBot.Services
 
             var textChannel = context.ToTextChannel();
             var voiceChannel = context.ToVoiceChannel();
-
+ 
             if (textChannel == null) return;
 
             try
             {
                 LavaPlayer? player = null;
 
-                if (voiceChannel == null || !context.InVoiceChannel())
+                if (System.Diagnostics.Debugger.IsAttached && !context.InVoiceChannel())
                 {
-                    await textChannel.SendMessageAsync("You must be in a voice channel for this command");
-                    return;
-                }
-                else if (BotIsInUseInOtherChannel(context))
-                {
-                    await textChannel.SendMessageAsync("The bot is busy");
-                    var bot = GetCurrentPlayer();
-
-                    logger.LogError($"User channel: {voiceChannel?.Name} | Bot Channel: {bot?.VoiceChannel?.Name} | Bot State: {bot?.PlayerState}");
-                    return;
+                    voiceChannel = discordClient.Guilds.First(x => x.Id == textChannel.GuildId).Channels.OfType<IVoiceChannel>().First() as IVoiceChannel;
+                    player = await JoinPlayer(voiceChannel, textChannel);                    
                 }
                 else
                 {
-                    player = await JoinPlayer(voiceChannel, textChannel);                   
-                }
+                    if (voiceChannel == null || !context.InVoiceChannel())
+                    {
+                        await textChannel.SendMessageAsync("You must be in a voice channel for this command");
+                        return;
+                    }
+                    else if (BotIsInUseInOtherChannel(context))
+                    {
+                        await textChannel.SendMessageAsync("The bot is busy");
+                        var bot = GetCurrentPlayer();
 
-                if (player == null)
-                {
-                    await textChannel.SendMessageAsync("Error creating music player"); 
-                    return;
-                }
+                        logger.LogError($"User channel: {voiceChannel?.Name} | Bot Channel: {bot?.VoiceChannel?.Name} | Bot State: {bot?.PlayerState}");
+                        return;
+                    }
+                    else
+                    {
+                        player = await JoinPlayer(voiceChannel, textChannel);
+                    }
 
-                //local file requested
-                var searchResponse = searchArgument.Contains("C:\\") &&
-                                     File.Exists(searchArgument) ?
-                                                                 await lavaNode.SearchAsync(SearchType.Direct, searchArgument) :
-                                                                 await lavaNode.SearchAsync(SearchType.YouTube, searchArgument);
-                if (!searchResponse.Tracks.Any())
-                {
-                    await textChannel.SendMessageAsync($"No results found for {searchArgument}");
+                    if (player == null)
+                    {
+                        await textChannel.SendMessageAsync("Error creating music player");
+                        return;
+                    }
                 }
-                else if (!string.IsNullOrWhiteSpace(searchResponse.Playlist.Name))
+ 
+                var searchResponse = await SearchRequest(searchArgument);
+               
+                if (!searchResponse.response.Tracks.Any())
                 {
-                    await ProcessPlayList(searchResponse, player, textChannel);
+                    logger.LogInformation($"No results found for {searchArgument}"); 
+                }
+                else if (!string.IsNullOrWhiteSpace(searchResponse.response.Playlist.Name))
+                {
+                    await ProcessPlayList(searchResponse.response, player, textChannel);
                 }
                 else
                 {
@@ -310,8 +315,12 @@ namespace OuterHeavenBot.Services
             }
             else
             {
-                var time = player.Track.Position - TimeSpan.FromSeconds(seconds) > TimeSpan.FromSeconds(0) ? player.Track.Position - TimeSpan.FromSeconds(seconds) :
-                                                                                                             TimeSpan.FromSeconds(0);
+                //make sure the time requested is greater than the start of the song
+                var goToTime = player.Track.Position - TimeSpan.FromSeconds(seconds);
+
+                var time = goToTime >= TimeSpan.FromSeconds(0) ? goToTime :
+                                                                 TimeSpan.FromSeconds(0);
+
                 await channel.SendMessageAsync($"Rewinding {time}");
                 await player.SeekAsync(time);
             }
@@ -340,8 +349,12 @@ namespace OuterHeavenBot.Services
             }
             else
             {
-                var time = player.Track.Position + TimeSpan.FromSeconds(seconds) <= player.Track.Duration ? player.Track.Duration - TimeSpan.FromMilliseconds(100) :
-                                                                                                             player.Track.Position + TimeSpan.FromSeconds(seconds);
+                //Make sure the time requested is before the end of the song
+                var goToTime = player.Track.Position + TimeSpan.FromSeconds(seconds);
+
+                var time = goToTime <= player.Track.Duration ? goToTime :
+                                       player.Track.Duration - TimeSpan.FromMilliseconds(100); 
+                                                                                                            
                 await channel.SendMessageAsync($"Fast Forwarding {time}");
                 await player.SeekAsync(time);
             }
@@ -442,9 +455,35 @@ namespace OuterHeavenBot.Services
            context.ToVoiceChannel()?.Id != GetCurrentPlayer()?.VoiceChannel.Id && 
            GetCurrentPlayer()?.PlayerState == PlayerState.Playing;
       
-        private async Task ProcessTrack(SearchResponse searchResponse, LavaPlayer? player, ITextChannel commandChannel)
+        private async Task ProcessTrack((SearchResponse response,string argumentsUsed) searchResponse, LavaPlayer? player, ITextChannel commandChannel)
         {
-            var track = searchResponse.Tracks.FirstOrDefault();
+            if(!searchResponse.response.Tracks.Any())
+            {
+                return;
+            }
+
+            LavaTrack? track = null;
+            var searchArguement = searchResponse.argumentsUsed.ToLower().Trim();
+
+            if (searchArguement.Contains(".com/"))
+            {
+                //if we can't find an exact match, use a match that is like our arguments
+                track = searchResponse.response.Tracks.FirstOrDefault(x=>x.Url.ToLower().Trim() == searchArguement) ??
+                        searchResponse.response.Tracks.FirstOrDefault(x => x.Url.ToLower().Trim().Contains(searchArguement));
+            }
+            else
+            {
+                track = searchResponse.response.Tracks.FirstOrDefault(x => x.Title.ToLower().Trim() == searchArguement) ??
+                        searchResponse.response.Tracks.FirstOrDefault(x => x.Title.ToLower().Trim().Contains(searchArguement));
+            }
+            
+            if(track == null)
+            {
+                track = searchResponse.response.Tracks.FirstOrDefault();
+                logger.LogInfo($"unable to find a match in search results for arguement {searchArguement}. Using first track in the list [{track?.Title}]");
+                logger.LogInfo($"available tracks are {string.Join(Environment.NewLine,searchResponse.response.Tracks.Select(x=>$"{x.Title} | {x.Author} | {x.Url}"))}");
+            }
+             
             if (track == null || player == null) return;
 
             if (player.PlayerState == PlayerState.Playing)
@@ -521,7 +560,38 @@ namespace OuterHeavenBot.Services
             return player;
         }
 
+        private async Task<(SearchResponse response,string arguementUsed)> SearchRequest(string searchArgument)
+        {
+            var searchType = searchArgument.Contains("C:\\") && File.Exists(searchArgument) ? SearchType.Direct : SearchType.YouTube;
 
+            logger.LogInformation($"Processing {searchArgument} for search type {searchType}");
+
+            if (searchType == SearchType.Direct)
+            {               
+                return (await lavaNode.SearchAsync(searchType, searchArgument), searchArgument);
+            }
+
+            var urlRequest = Uri.TryCreate(searchArgument, UriKind.Absolute, out Uri? uriResult);
+            
+            var cleanedArgs = urlRequest && !string.IsNullOrWhiteSpace(uriResult?.Host ?? "") ? uriResult?.Host ?? ""
+                                                                                                                       : searchArgument;
+            if (urlRequest) 
+            {
+                var videoId = uriResult?.Query?.Split("&")[0];
+                cleanedArgs = cleanedArgs + uriResult?.AbsolutePath + videoId;
+                logger.LogInformation($"Url has been requested. Using absolute path {cleanedArgs}");
+            }
+
+            var response = await lavaNode.SearchAsync(searchType, cleanedArgs);
+            //we only search youtube at the moment. If we don't find results we try youtube music aswell.
+            if (!response.Tracks.Any())
+            {
+                logger.LogInformation("No results found from generic youtube search. Attempting to search youtubemusic");
+                response = await lavaNode.SearchAsync(SearchType.YouTubeMusic, cleanedArgs);
+            }
+
+            return (response, cleanedArgs);
+        }
         private LavaPlayer? GetCurrentPlayer()
         { 
             if (!this.guildId.HasValue)
@@ -530,6 +600,14 @@ namespace OuterHeavenBot.Services
             }
 
             LavaPlayer? player = null;
+           
+            //this doesn't work. It will say lava link is connected when it isn't/
+            //if (!lavaNode.IsConnected)
+            //{
+            //  logger.LogInformation("Lavalink is not connected. Forcing reconnect");                
+            //  lavaNode.ConnectAsync().GetAwaiter().GetResult();
+            //}
+
             lavaNode?.TryGetPlayer(discordClient.GetGuild(guildId.Value) ?? default, out player);
 
             return player;
