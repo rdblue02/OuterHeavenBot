@@ -24,6 +24,30 @@ namespace OuterHeavenBot.Commands.Modules
             this.logger = logger;
         }
 
+        [Command("search", RunMode = RunMode.Async)]
+        [Alias("sr")]
+        public async Task Search([Remainder] string argument)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(argument))
+                {
+                    await ReplyAsync("Song name cannot be empty");
+                    return;
+                }
+
+                var results = await musicService.RequestSearch(argument);
+                await ReplyAsync(null, false, results);
+            }
+            catch (Exception e)
+            {
+                await ReplyAsync($"Error searching for {argument}");
+                logger.LogError($"Error searching {argument}:\n{e}");
+            }
+        }
+
+
+
         [Command("play", RunMode = RunMode.Async)]
         [Alias("p")]
         public async Task Play([Remainder] string argument)
@@ -83,7 +107,6 @@ namespace OuterHeavenBot.Commands.Modules
         {
             try
             {
-              
                 await musicService.RequestQueueClear(index, Context);
             }
             catch (Exception e)
@@ -194,7 +217,7 @@ namespace OuterHeavenBot.Commands.Modules
                         Fields = new List<EmbedFieldBuilder>(),
                     };
 
-                    var info = quedSongs.Select((track, y) => new { index = (y + 1).ToString(), title = CleanSongTitle(track.Title, track.Author), duration = track.Duration }).ToList();
+                    var info = quedSongs.Select((track, y) => new { index = (y).ToString(), title = Helpers.CleanSongTitle(track.Title, track.Author), duration = track.Duration }).ToList();
 
                     var indexString = $"Playing{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.index).Skip(1).ToList())}";
                     var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.title).ToList())}";
@@ -204,9 +227,9 @@ namespace OuterHeavenBot.Commands.Modules
                     embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Duration", Value = durationString });
 
                     var footerText = quedSongs.Count > 1 ?
-                        $" Current song remaining duration - {quedSongs[0].Duration - quedSongs[0].Position}{Environment.NewLine}" +
-                                                         $"Total Queue Duration - {info.Skip(1).Select(x => x.duration).ToList().Aggregate((x, y) => x + y)}" :
-                        $" Current song remaining duration - {quedSongs[0].Duration - quedSongs[0].Position}";
+                        $" Current song remaining duration - {(quedSongs[0].Duration - quedSongs[0].Position).ToString("hh\\:mm\\:ss")}{Environment.NewLine}" +
+                                                         $"Total Queue Duration - {info.Skip(1).Select(x => x.duration).ToList().Aggregate((x, y) => x + y).ToString("hh\\:mm\\:ss")}" :
+                        $" Current song remaining duration - {(quedSongs[0].Duration - quedSongs[0].Position).ToString("hh\\:mm\\:ss")}";
                                                        
                     embedBuilder.WithFooter(new EmbedFooterBuilder()
                     {
@@ -225,34 +248,6 @@ namespace OuterHeavenBot.Commands.Modules
                 logger.LogError($"Error queing song(s):\n{e}");
             } 
         }
-
-        private string CleanSongTitle(string title, string author)
-        {
-            if (title.Length < 42)
-            {
-                return title;
-            }
-            else
-            {
-                var cleanedTitle = title.Replace(author, "")
-                                     .Replace("|", " ")
-                                     .Replace("-", " ")
-                                     .Replace(",", " ")
-                                     .Replace("(", " ")
-                                     .Replace(")", " ")
-                                     .Replace("  ", " ");
-             
-                if (cleanedTitle.Length > 42)
-                {
-                    return cleanedTitle.Substring(0, 39) + "...";
-                }
-                else
-                {
-                    return cleanedTitle;
-                }
-            }
-        }
-
-      
+         
     }
 }

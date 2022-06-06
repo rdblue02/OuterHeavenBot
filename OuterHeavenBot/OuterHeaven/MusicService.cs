@@ -56,6 +56,53 @@ namespace OuterHeavenBot.Services
             logger.LogInfo($"Intialization of {GetType().Name} is complete");
         }
  
+
+        public async Task<Embed> RequestSearch(string searchArgument)
+        {
+            EmbedBuilder embedBuilder = new EmbedBuilder()
+            {
+                Title = "Song Search",
+                Color = Color.LighterGrey,
+                Fields = new List<EmbedFieldBuilder>(),
+            };
+            try
+            {
+                var searchResponse = await SearchRequest(searchArgument);
+
+                if (!searchResponse.Tracks.Any())
+                {
+                    logger.LogInformation($"No results found for {searchArgument}");
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "No Results", Value = searchArgument });
+                }
+                else
+                {
+                    var songs = searchResponse.Tracks.ToList();
+
+                    var info = songs.Select((track, y) => new { index = (y).ToString(), title = Helpers.CleanSongTitle(track.Title, track.Author), duration = track.Duration }).ToList();
+
+                    var indexString = $"{Environment.NewLine}{string.Join(Environment.NewLine, info.Select(x => x.index).ToList())}";
+                    var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.title).ToList())}";
+                    var durationString = $"{string.Join(Environment.NewLine, info.Select(x => x.duration).ToList())}";
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = indexString });
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = songString });
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Duration", Value = durationString });
+
+                    var footerText = $"Total Duration - {info.Select(x => x.duration).ToList().Aggregate((x, y) => x + y).ToString("hh\\:mm\\:ss")}";
+                    embedBuilder.WithFooter(new EmbedFooterBuilder()
+                    {
+                        Text = footerText
+                    });
+                }
+
+            }
+            catch(Exception ex)
+            {
+                logger.LogError(ex);
+                embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Error", Value = searchArgument });
+            }
+          
+            return embedBuilder.Build();
+        }
         public async Task RequestSong(string searchArgument, SocketCommandContext context)
         {
 
@@ -102,17 +149,17 @@ namespace OuterHeavenBot.Services
  
                 var searchResponse = await SearchRequest(searchArgument);
                
-                if (!searchResponse.response.Tracks.Any())
+                if (!searchResponse.Tracks.Any())
                 {
-                    logger.LogInformation($"No results found for {searchArgument}"); 
+                    logger.LogInformation($"No results found for {searchArgument}");                    
                 }
-                else if (!string.IsNullOrWhiteSpace(searchResponse.response.Playlist.Name))
+                else if (!string.IsNullOrWhiteSpace(searchResponse.Playlist.Name))
                 {
-                    await ProcessPlayList(searchResponse.response, player, textChannel);
+                    await ProcessPlayList(searchResponse, player, textChannel);
                 }
                 else
                 {
-                    await ProcessTrack(searchResponse, player, textChannel);
+                    await ProcessTrack(searchResponse,searchArgument, player, textChannel);
                 }
             }
             catch (Exception ex)
@@ -455,35 +502,13 @@ namespace OuterHeavenBot.Services
            context.ToVoiceChannel()?.Id != GetCurrentPlayer()?.VoiceChannel.Id && 
            GetCurrentPlayer()?.PlayerState == PlayerState.Playing;
       
-        private async Task ProcessTrack((SearchResponse response,string argumentsUsed) searchResponse, LavaPlayer? player, ITextChannel commandChannel)
-        {
-            if(!searchResponse.response.Tracks.Any())
-            {
-                return;
-            }
+        private async Task ProcessTrack(SearchResponse response, string argumentsUsed, LavaPlayer? player, ITextChannel commandChannel)
+        { 
 
-            LavaTrack? track = null;
-            var searchArguement = searchResponse.argumentsUsed.ToLower().Trim();
+           var track = response.Tracks.Count > 1 ? 
+                                                FindBestTrackFromSearch(response, argumentsUsed.ToLower().Trim()) : 
+                                                response.Tracks.FirstOrDefault();
 
-            if (searchArguement.Contains(".com/"))
-            {
-                //if we can't find an exact match, use a match that is like our arguments
-                track = searchResponse.response.Tracks.FirstOrDefault(x=>x.Url.ToLower().Trim() == searchArguement) ??
-                        searchResponse.response.Tracks.FirstOrDefault(x => x.Url.ToLower().Trim().Contains(searchArguement));
-            }
-            else
-            {
-                track = searchResponse.response.Tracks.FirstOrDefault(x => x.Title.ToLower().Trim() == searchArguement) ??
-                        searchResponse.response.Tracks.FirstOrDefault(x => x.Title.ToLower().Trim().Contains(searchArguement));
-            }
-            
-            if(track == null)
-            {
-                track = searchResponse.response.Tracks.FirstOrDefault();
-                logger.LogInfo($"unable to find a match in search results for arguement {searchArguement}. Using first track in the list [{track?.Title}]");
-                logger.LogInfo($"available tracks are {string.Join(Environment.NewLine,searchResponse.response.Tracks.Select(x=>$"{x.Title} | {x.Author} | {x.Url}"))}");
-            }
-             
             if (track == null || player == null) return;
 
             if (player.PlayerState == PlayerState.Playing)
@@ -496,33 +521,56 @@ namespace OuterHeavenBot.Services
                 await player.PlayAsync(track);
             }
         }
+
+  
+        private LavaTrack? FindBestTrackFromSearch(SearchResponse response, string searchArguement)
+        {
+            LavaTrack? track = null;
+            if (searchArguement.Contains(".com/"))
+            {
+                //if we can't find an exact match, use a match that is like our arguments
+                track = response.Tracks.FirstOrDefault(x => x.Url.ToLower().Trim() == searchArguement);
+            }
+            else
+            {
+                track = response.Tracks.FirstOrDefault(x => x.Title.ToLower().Trim() == searchArguement);
+            }
+
+            if (track == null)
+            {
+                track = response.Tracks.FirstOrDefault();
+                logger.LogInfo($"unable to find a match in search results for arguement {searchArguement}. Using first track in the list [{track?.Title}]");
+                logger.LogInfo($"available tracks are {string.Join(Environment.NewLine, response.Tracks.Select(x => $"{x.Title} | {x.Author} | {x.Url}"))}");
+            }
+            return track;
+        }
+
         private async Task ProcessPlayList(SearchResponse searchResponse, LavaPlayer? player, ITextChannel commandChannel)
         {
             if (player == null || !searchResponse.Tracks.Any()) return;
 
-            if(searchResponse.Playlist.SelectedTrack < searchResponse.Tracks.Count && searchResponse.Playlist.SelectedTrack >-1)
+          
+            var firstTrack = searchResponse.Playlist.SelectedTrack < searchResponse.Tracks.Count && searchResponse.Playlist.SelectedTrack > -1 ?
+                searchResponse.Tracks.ElementAt(searchResponse.Playlist.SelectedTrack) : searchResponse.Tracks.FirstOrDefault();
+           
+            var playlistTrackNames = string.Join(", ", searchResponse.Tracks.Select(x => x.Title).ToList());
+
+            logger.LogInfo($"Search results are a play list. Will process the following playlist {searchResponse.Playlist.Name ?? ""} with tracks - {playlistTrackNames}");
+
+            if (player.PlayerState == PlayerState.Playing)
             {
-                var firstTrack = searchResponse.Tracks.ElementAt(searchResponse.Playlist.SelectedTrack);
+                player.Queue.Enqueue(firstTrack);
+                await commandChannel.SendMessageAsync($"Queing playlist {searchResponse.Playlist.Name}");
+            }
+            else
+            {
+                await commandChannel.SendMessageAsync($"Play list {searchResponse.Playlist.Name} started");
+                await player.PlayAsync(firstTrack);                
+            }
 
-                var playlistTrackNames = string.Join(", ", searchResponse.Tracks.Select(x => x.Title).ToList());
-
-                logger.LogInfo($"Search results are a play list. Will process the following tracks - {playlistTrackNames}");
-
-                if (player.PlayerState == PlayerState.Playing)
-                {
-                    player.Queue.Enqueue(firstTrack);
-                    await commandChannel.SendMessageAsync($"Queing playlist {searchResponse.Playlist.Name}");
-                }
-                else
-                {
-                    await player.PlayAsync(firstTrack);
-                    await commandChannel.SendMessageAsync($"Play list {searchResponse.Playlist.Name} started");
-                }
-
-                foreach (var track in searchResponse.Tracks.Where(x=>x.Title != firstTrack.Title && x.Author != firstTrack.Author))
-                {
-                    player.Queue.Enqueue(track);
-                }
+            foreach (var track in searchResponse.Tracks.Where(x => x.Id != firstTrack.Id))
+            {
+                player.Queue.Enqueue(track);
             }
         }
         private async Task CheckForIdelDisconnect(LavaPlayer? lavaPlayer)
@@ -560,37 +608,24 @@ namespace OuterHeavenBot.Services
             return player;
         }
 
-        private async Task<(SearchResponse response,string arguementUsed)> SearchRequest(string searchArgument)
+        private async Task<SearchResponse> SearchRequest(string searchArgument)
         {
-            var searchType = searchArgument.Contains("C:\\") && File.Exists(searchArgument) ? SearchType.Direct : SearchType.YouTube;
+           
+            var isUriRequest = Uri.TryCreate(searchArgument, UriKind.Absolute, out Uri? uriResult);
+            var searchType = isUriRequest ? SearchType.Direct : SearchType.YouTube;
 
-            logger.LogInformation($"Processing {searchArgument} for search type {searchType}");
+            var searchMethod =  uriResult?.IsFile ?? false ? "local" : searchType == SearchType.Direct ?  "Youtube Url" : "Youtube KeyWord";           
 
-            if (searchType == SearchType.Direct)
-            {               
-                return (await lavaNode.SearchAsync(searchType, searchArgument), searchArgument);
-            }
+            logger.LogInformation($"Processing {searchArgument} for search type {searchType} using search method {searchMethod}");
 
-            var urlRequest = Uri.TryCreate(searchArgument, UriKind.Absolute, out Uri? uriResult);
-            
-            var cleanedArgs = urlRequest && !string.IsNullOrWhiteSpace(uriResult?.Host ?? "") ? uriResult?.Host ?? ""
-                                                                                                                       : searchArgument;
-            if (urlRequest) 
-            {
-                var videoId = uriResult?.Query?.Split("&")[0];
-                cleanedArgs = cleanedArgs + uriResult?.AbsolutePath + videoId;
-                logger.LogInformation($"Url has been requested. Using absolute path {cleanedArgs}");
-            }
+            var response = await lavaNode.SearchAsync(searchType, searchArgument);
 
-            var response = await lavaNode.SearchAsync(searchType, cleanedArgs);
-            //we only search youtube at the moment. If we don't find results we try youtube music aswell.
-            if (!response.Tracks.Any())
+            if (!response.Tracks.Any() && searchType == SearchType.YouTube)
             {
                 logger.LogInformation("No results found from generic youtube search. Attempting to search youtubemusic");
-                response = await lavaNode.SearchAsync(SearchType.YouTubeMusic, cleanedArgs);
+                response = await lavaNode.SearchAsync(SearchType.YouTubeMusic, searchArgument);
             }
-
-            return (response, cleanedArgs);
+            return response;          
         }
         private LavaPlayer? GetCurrentPlayer()
         { 

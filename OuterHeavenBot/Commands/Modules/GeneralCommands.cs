@@ -112,7 +112,7 @@ namespace OuterHeavenBot.Commands.Modules
             {
                 "help"         ,
                 "play"         ,
-                "playlocal"    ,
+                "search"       ,
                 "pause"        ,
                 "skip"         ,
                 "clearqueue"   ,
@@ -130,7 +130,7 @@ namespace OuterHeavenBot.Commands.Modules
             {
                 "h",
                 "p",
-                "pl" ,
+                "sr"       ,
                 "pa" ,
                 "sk" ,
                 "cq" ,
@@ -148,7 +148,7 @@ namespace OuterHeavenBot.Commands.Modules
             {
                 "none"                   ,
                 "name | url"      ,
-                "name | file path",
+                "name | url"      ,
                 "none"                   ,
                 "none"                   ,
                 "none"                   ,
@@ -166,7 +166,7 @@ namespace OuterHeavenBot.Commands.Modules
             {
                 "Displays help info",
                 "Play a song"       ,
-                "Play from local directory",
+                "Preview search results",
                 "Pause or unpause current song"   ,
                 "Skips current song"  ,
                 "Clear queue or song in queue"   ,

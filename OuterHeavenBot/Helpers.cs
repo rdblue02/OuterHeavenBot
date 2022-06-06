@@ -70,5 +70,32 @@ namespace OuterHeavenBot
             var voiceState = (context?.User as IVoiceState);
             return (voiceState != null && voiceState.VoiceChannel != null && !voiceState.VoiceChannel.Name.ToLower().Contains("afk"));         
         }
+         
+        public static string CleanSongTitle(string title, string author)
+        {
+            if (title.Length < 42)
+            {
+                return title;
+            }
+            else
+            {
+                var cleanedTitle = title.Replace(author, "")
+                                     .Replace("|", " ")
+                                     .Replace("-", " ")
+                                     .Replace(",", " ")
+                                     .Replace("(", " ")
+                                     .Replace(")", " ")
+                                     .Replace("  ", " ");
+
+                if (cleanedTitle.Length > 42)
+                {
+                    return cleanedTitle.Substring(0, 39) + "...";
+                }
+                else
+                {
+                    return cleanedTitle;
+                }
+            }
+        }
     }
 }
