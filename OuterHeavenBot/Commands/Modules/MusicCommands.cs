@@ -46,8 +46,8 @@ namespace OuterHeavenBot.Commands.Modules
             }
         }
 
-        [Command("ListLocalSongs", RunMode = RunMode.Async)]
-        [Alias("lls")]
+        [Command("ShowLocal", RunMode = RunMode.Async)]
+        [Alias("sl")]
         public async Task SearchLocal()
         {
             try
