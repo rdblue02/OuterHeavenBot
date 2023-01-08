@@ -151,7 +151,7 @@ namespace OuterHeavenBot.Services
 
             catch (Exception e)
             {
-                logger.LogError($"Error playing clippie. Current channel id: {currentChannelId} channel name: {voice?.Name}");
+                logger.LogError($"Error playing clippie. Current channel id: {currentChannelId} channel name: {voice?.Name} Error:\n{e}");
                 await channel.SendMessageAsync($"Error playing clippie {contentRequested}");
                 throw;
             }

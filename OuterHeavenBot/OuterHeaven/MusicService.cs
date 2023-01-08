@@ -57,7 +57,7 @@ namespace OuterHeavenBot.Services
         }
  
 
-        public async Task<Embed> RequestSearch(string searchArgument)
+        public async Task<Embed> RequestSearch(string searchArgument, bool localOnly =false)
         {
             EmbedBuilder embedBuilder = new EmbedBuilder()
             {
@@ -67,7 +67,7 @@ namespace OuterHeavenBot.Services
             };
             try
             {
-                var searchResponse = await SearchRequest(searchArgument);
+                var searchResponse = await SearchRequest(searchArgument,localOnly);
 
                 if (!searchResponse.Tracks.Any())
                 {
@@ -103,7 +103,9 @@ namespace OuterHeavenBot.Services
           
             return embedBuilder.Build();
         }
-        public async Task RequestSong(string searchArgument, SocketCommandContext context)
+         
+
+        public async Task RequestSong(string searchArgument, SocketCommandContext context,bool playlocal)
         {
 
             var textChannel = context.ToTextChannel();
@@ -147,7 +149,7 @@ namespace OuterHeavenBot.Services
                     }
                 }
  
-                var searchResponse = await SearchRequest(searchArgument);
+                var searchResponse = await SearchRequest(searchArgument,playlocal);
                
                 if (!searchResponse.Tracks.Any())
                 {
@@ -568,7 +570,7 @@ namespace OuterHeavenBot.Services
                 await player.PlayAsync(firstTrack);                
             }
 
-            foreach (var track in searchResponse.Tracks.Where(x => x.Id != firstTrack.Id))
+            foreach (var track in searchResponse.Tracks.Where(predicate: x => x.Id != firstTrack.Id))
             {
                 player.Queue.Enqueue(track);
             }
@@ -608,9 +610,30 @@ namespace OuterHeavenBot.Services
             return player;
         }
 
-        private async Task<SearchResponse> SearchRequest(string searchArgument)
+        private async Task<SearchResponse> SearchRequest(string searchArgument,bool playLocal)
         {
            
+            if(playLocal)
+            {
+                var runningDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
+                var musicDirectory = runningDirectory?.GetDirectories().FirstOrDefault(x=>x.Name.ToLower().Contains("music"));
+                
+                if(musicDirectory == null) 
+                {
+                    logger.LogInformation($"Cannot find music directory. Zach says this is okay.");
+                    return new SearchResponse();
+                }
+                var musicFile = musicDirectory.GetFiles().FirstOrDefault(x => x.Name.ToLower().Contains(searchArgument));
+             
+                if(musicFile == null)
+                {
+                    logger.LogInformation($"No results found for {searchArgument} via local request");
+                    return new SearchResponse();
+                }
+               
+                searchArgument = musicFile.FullName;
+            }
+
             var isUriRequest = Uri.TryCreate(searchArgument, UriKind.Absolute, out Uri? uriResult);
             var searchType = isUriRequest ? SearchType.Direct : SearchType.YouTube;
 

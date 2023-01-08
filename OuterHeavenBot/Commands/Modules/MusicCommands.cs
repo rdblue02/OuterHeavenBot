@@ -46,6 +46,51 @@ namespace OuterHeavenBot.Commands.Modules
             }
         }
 
+        [Command("ListLocalSongs", RunMode = RunMode.Async)]
+        [Alias("lls")]
+        public async Task SearchLocal()
+        {
+            try
+            {
+                
+                var runningDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
+                var musicDirectory = runningDirectory?.GetDirectories().FirstOrDefault(x => x.Name.ToLower().Contains("music"));
+                var searchResponse = musicDirectory?.GetFiles();
+
+
+                EmbedBuilder embedBuilder = new EmbedBuilder()
+                {
+                    Title = "Song Search",
+                    Color = Color.LighterGrey,
+                    Fields = new List<EmbedFieldBuilder>(),
+                };
+
+                if (!searchResponse?.Any() ?? true)
+                {
+                    logger.LogInformation($"No songs found");
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "No Results", Value = "Local Directory" });
+                }
+                else
+                {
+                 
+
+                    var info = searchResponse?.Select((track, y) => new { index = (y).ToString(), title = track.FullName}).ToList();
+
+                    var indexString = $"{Environment.NewLine}{string.Join(Environment.NewLine, info?.Select(x => x?.index)?.ToList())}";
+                    var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.title).ToList())}"; 
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "#", Value = indexString });
+                    embedBuilder.Fields.Add(new EmbedFieldBuilder() { IsInline = true, Name = "Name", Value = songString });  
+                }
+
+                await ReplyAsync(null, false, embedBuilder.Build());
+            }
+            catch (Exception e)
+            {
+                await ReplyAsync($"Error");
+                logger.LogError($"Error searching:\n{e}");
+            }
+        }
+
 
 
         [Command("play", RunMode = RunMode.Async)]
@@ -60,7 +105,29 @@ namespace OuterHeavenBot.Commands.Modules
                     return;
                 }
 
-                await musicService.RequestSong(argument,Context);
+                await musicService.RequestSong(argument,Context,false);
+            }
+            catch (Exception e)
+            {
+                await ReplyAsync($"Error playing {argument}");
+                logger.LogError($"Error playing {argument}:\n{e}");
+            }
+        }
+
+        [Command("playlocal", RunMode = RunMode.Async)]
+        [Alias("pl")]
+        public async Task PlayLocal([Remainder] string argument)
+        {
+            try
+            {
+                await ReplyAsync("Playing local");
+                if (string.IsNullOrWhiteSpace(argument))
+                {
+                    await ReplyAsync("Song name cannot be empty");
+                    return;
+                }
+
+                await musicService.RequestSong(argument, Context,true);
             }
             catch (Exception e)
             {
@@ -159,7 +226,7 @@ namespace OuterHeavenBot.Commands.Modules
 
         [Command("goto", RunMode = RunMode.Async)]
         [Alias("gt")]
-        public async Task GoTo(string time)
+        public async Task GoTo(string? time)
         {
             try
             {              

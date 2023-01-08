@@ -28,7 +28,7 @@ namespace OuterHeavenBot.Commands.Modules
 
         [Command("clippie", RunMode = RunMode.Async)]
         [Alias("c")]
-        public async Task Clippie(string contentName = null)
+        public async Task Clippie(string contentName = "")
         {
             try
             {
@@ -43,8 +43,13 @@ namespace OuterHeavenBot.Commands.Modules
 
         [Command("sounds", RunMode = RunMode.Async)]
         [Alias("s")]
-        public async Task SendUserAvailableSounds(string category = null)
+        public async Task SendUserAvailableSounds(string? category = null)
         {
+            if (category is null)
+            {
+                throw new ArgumentNullException(nameof(category));
+            }
+
             try
             {
                 var directories = ClippieHelpers.GetAudioFiles();
