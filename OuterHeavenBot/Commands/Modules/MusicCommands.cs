@@ -74,7 +74,7 @@ namespace OuterHeavenBot.Commands.Modules
                 {
                  
 
-                    var info = searchResponse?.Select((track, y) => new { index = (y).ToString(), title = track.FullName}).ToList();
+                    var info = searchResponse?.Select((track, y) => new { index = (y).ToString(), title = track.Name}).ToList();
 
                     var indexString = $"{Environment.NewLine}{string.Join(Environment.NewLine, info?.Select(x => x?.index)?.ToList())}";
                     var songString = $"{string.Join(Environment.NewLine, info.Select(x => x.title).ToList())}"; 
