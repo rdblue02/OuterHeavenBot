@@ -44,8 +44,14 @@ namespace OuterHeavenBot.ClippieExtensions
        
         public static Dictionary<string, List<FileInfo>> GetAudioFiles()
         {
+            var clippyDirectory = Directory.GetCurrentDirectory() + "\\clips";
+            if(!Directory.Exists(clippyDirectory))
+            {
+                Directory.CreateDirectory(clippyDirectory);
+            }
+
             var directoryFileList = new Dictionary<string, List<FileInfo>>();
-            var directories = new DirectoryInfo(Directory.GetCurrentDirectory() + "\\clips").GetDirectories().Where(x => !x.Name.ToLower().Contains("music"));
+            var directories = new DirectoryInfo(clippyDirectory).GetDirectories().Where(x => !x.Name.ToLower().Contains("music"));
             foreach (var directory in directories)
             {
                 var fileNames = directory.GetFiles().ToList();

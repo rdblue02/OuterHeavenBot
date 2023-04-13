@@ -19,12 +19,13 @@ namespace OuterHeavenBot.Clients
         private readonly ILogger logger;
         private readonly BotSettings botSettings;
         public ClippieDiscordClient(ILogger<ClippieDiscordClient> logger,
-                                    BotSettings botSettings)
+                                    BotSettings botSettings,
+                                    DiscordSocketConfig config):base(config)
         {
             this.logger = logger;
             this.botSettings = botSettings;
             this.Log += ClippieDiscordClient_Log;
-              
+             
         }
 
         public async Task InitializeAsync()

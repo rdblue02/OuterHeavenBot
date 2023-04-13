@@ -22,7 +22,8 @@ namespace OuterHeavenBot.Clients
         private const string lavalinkProcessName = "javaw";
         private const string lavalinkStartFile = "Lavalink.jar";
         public OuterHeavenDiscordClient(ILogger<OuterHeavenDiscordClient> logger,
-                                        BotSettings botSettings)
+                                        BotSettings botSettings,
+                                        DiscordSocketConfig config):base(config)
         {
             this.requiredLavaLinkFiles= new List<string>() { "Lavalink.jar", "application.yml" }; 
             this.logger = logger;

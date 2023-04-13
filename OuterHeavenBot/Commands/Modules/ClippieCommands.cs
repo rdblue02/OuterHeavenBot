@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Audio;
 using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using OuterHeavenBot.ClippieExtensions;
 using OuterHeavenBot.Services;
@@ -26,7 +27,7 @@ namespace OuterHeavenBot.Commands.Modules
             this.clippieService = clippieService;
         }
 
-        [Command("clippie", RunMode = RunMode.Async)]
+        [Command("clippie", RunMode = Discord.Commands.RunMode.Async)]
         [Alias("c")]
         public async Task Clippie(string contentName = "")
         {
@@ -41,15 +42,10 @@ namespace OuterHeavenBot.Commands.Modules
             }
         }
 
-        [Command("sounds", RunMode = RunMode.Async)]
+        [Command("sounds", RunMode = Discord.Commands.RunMode.Async)]
         [Alias("s")]
         public async Task SendUserAvailableSounds(string? category = null)
-        {
-            if (category is null)
-            {
-                throw new ArgumentNullException(nameof(category));
-            }
-
+        { 
             try
             {
                 var directories = ClippieHelpers.GetAudioFiles();

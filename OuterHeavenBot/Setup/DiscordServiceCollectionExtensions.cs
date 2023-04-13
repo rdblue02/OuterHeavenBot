@@ -1,4 +1,5 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using OuterHeavenBot.Clients;
 using OuterHeavenBot.Commands;
@@ -18,40 +19,26 @@ namespace OuterHeavenBot.Setup
     {
 
         public static IServiceCollection AddDiscord(this IServiceCollection services)
-        {
+        {   
+            services.AddSingleton(new DiscordSocketConfig()
+            {
+                LogLevel = LogSeverity.Verbose,
+                GatewayIntents = GatewayIntents.All,
+                MessageCacheSize = 1000,
+                LogGatewayIntentWarnings = false
+            });
 
+            services.AddSingleton<ClippieDiscordClient>();          
             services.AddSingleton<CommandService>().Configure<CommandServiceConfig>(x =>
             {
-                x.LogLevel = Discord.LogSeverity.Verbose;
-            });
+                x.LogLevel = LogSeverity.Verbose;
+            }); 
 
             services.AddSingleton<ClippieService>();
             services.AddSingleton<ClippieCommandHandler>();
-            services.AddSingleton<ClippieDiscordClient>().Configure<DiscordSocketConfig>(x =>
-                                                                                       {
-                                                                                           x.LogLevel = Discord.LogSeverity.Verbose;
-                                                                                           x.GatewayIntents = Discord.GatewayIntents.DirectMessages |
-                                                                                                              Discord.GatewayIntents.DirectMessageTyping |
-                                                                                                              Discord.GatewayIntents.GuildMessages |
-                                                                                                              Discord.GatewayIntents.GuildMessageTyping |
-                                                                                                              Discord.GatewayIntents.Guilds |
-                                                                                                              Discord.GatewayIntents.GuildVoiceStates;
-                                                                                       });
-
             services.AddSingleton<MusicService>();
             services.AddSingleton<OuterHeavenCommandHandler>();
-            services.AddSingleton<OuterHeavenDiscordClient>().Configure<DiscordSocketConfig>(x =>
-            {
-                x.LogLevel = Discord.LogSeverity.Verbose;
-                
-                x.GatewayIntents = Discord.GatewayIntents.DirectMessages |
-                                  Discord.GatewayIntents.DirectMessageTyping |
-                                  Discord.GatewayIntents.GuildMessages |
-                                  Discord.GatewayIntents.GuildMessageTyping |
-                                  Discord.GatewayIntents.Guilds |
-                                  Discord.GatewayIntents.GuildVoiceStates;
-            });
-
+            services.AddSingleton<OuterHeavenDiscordClient>();
             services.AddSingleton(new LavaConfig()
             {
                 LogSeverity = Discord.LogSeverity.Verbose,

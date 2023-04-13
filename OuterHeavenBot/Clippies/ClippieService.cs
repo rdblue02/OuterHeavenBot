@@ -35,8 +35,10 @@ namespace OuterHeavenBot.Services
             discordClient.Ready += DiscordClient_Ready;
             discordClient.MessageReceived += DiscordClient_MessageReceived;
             discordClient.Disconnected += DiscordClient_Disconnected;
-            discordClient.Connected += DiscordClient_Connected;
+            discordClient.Connected += DiscordClient_Connected; 
         }
+
+       
 
         private Task DiscordClient_Connected()
         {
@@ -103,7 +105,7 @@ namespace OuterHeavenBot.Services
                 //    return;
                 //}
 
-                if (context.User is IVoiceState voice)
+                if (context.User is IGuildUser voice)
                 {
                     await PlayClippie(contentRequested,context.Channel, voice.VoiceChannel, cancellationToken);
                     clippliePlayerState = ClippliePlayerState.Available;
@@ -123,14 +125,14 @@ namespace OuterHeavenBot.Services
         private async Task PlayClippie(string contentRequested, ISocketMessageChannel channel, IVoiceChannel voice, CancellationToken cancellationToken = default)
         {
             try
-            {
+            { 
                 currentChannelId = voice.Id;
                 clippliePlayerState = ClippliePlayerState.Connecting;
 
                 var bytes = ClippieHelpers.ReadClippieFile(contentRequested);
                
                 if(bytes?.Any() ?? false)
-                {
+                { 
                     var audioClient = await voice.ConnectAsync();
                     audioClient.Disconnected += AudioClient_Disconnected;
                     using (var discordOutStream = audioClient.CreatePCMStream(AudioApplication.Mixed, 98304, 20))
