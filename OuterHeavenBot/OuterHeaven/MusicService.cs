@@ -11,8 +11,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Victoria;
-using Victoria.Enums;
-using Victoria.EventArgs;
+using Victoria.Node;
+using Victoria.Player;
 using Victoria.Responses.Search;
 
 namespace OuterHeavenBot.Services
@@ -40,13 +40,80 @@ namespace OuterHeavenBot.Services
             this.logger = logger;
             this.lavaNode = lavaNodeProvider.GetLavaNode(); 
             this.discordClient.Ready += DiscordClient_Ready;
-            this.discordClient.MessageReceived += DiscordClient_MessageReceived; 
-            this.lavaNode.OnLog += Lavanode_OnLog;
-            this.lavaNode.OnTrackStuck += Lavanode_OnTrackStuck;
-            this.lavaNode.OnTrackException += Lavanode_OnTrackException;
-            this.lavaNode.OnTrackStarted += Lavanode_OnTrackStarted;
-            this.lavaNode.OnTrackEnded += Lavanode_OnTrackEnded;
-            this.lavaNode.OnWebSocketClosed += Lavanode_OnWebSocketClosed; 
+            this.discordClient.MessageReceived += DiscordClient_MessageReceived;
+
+            this.lavaNode.OnTrackStuck += LavaNode_OnTrackStuck;
+            this.lavaNode.OnTrackException += LavaNode_OnTrackException;
+            this.lavaNode.OnTrackStart += LavaNode_OnTrackStart;
+            this.lavaNode.OnTrackEnd += LavaNode_OnTrackEnd; ;
+            this.lavaNode.OnWebSocketClosed += LavaNode_OnWebSocketClosed; ; 
+        }
+
+        private Task LavaNode_OnWebSocketClosed(Victoria.Node.EventArgs.WebSocketClosedEventArg arg)
+        {
+            logger.LogInformation($"Websocket Closed reason: {arg.Reason} {arg.Code}");
+            return Task.CompletedTask;
+        }
+
+        private async Task LavaNode_OnTrackEnd(Victoria.Node.EventArgs.TrackEndEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            logger.LogInformation($"{nameof(LavaNode_OnTrackEnd)} event has been raised. Reason {arg.Reason}");
+            if (arg.Reason == TrackEndReason.Finished &&
+                arg.Player != null &&
+                arg.Player.Vueue.TryDequeue(out LavaTrack nextTrack))
+            {
+                await arg.Player.PlayAsync(nextTrack);
+            }
+
+            if (arg.Reason == TrackEndReason.Stopped)
+            {
+                logger.LogInformation($"Stop requested. Clearing {arg.Player?.Vueue?.Count() ?? 0} songs from the queue");
+                arg.Player?.Vueue?.Clear();
+            }
+
+            if (arg.Player?.Track == null && (arg.Player?.Vueue == null || !arg.Player.Vueue.Any()))
+            {
+                logger.LogInformation($"Nothing left to play. Will wait {timeWaitUntilDisconnect} before disconnecting");
+                await Task.Run(async () => await CheckForIdelDisconnect(arg.Player));
+            }
+        }
+
+        private async Task LavaNode_OnTrackStart(Victoria.Node.EventArgs.TrackStartEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            await arg.Player.TextChannel.SendMessageAsync($"Now playing: {arg.Track.Title} - {arg.Track.Author} - {arg.Track.Duration}");
+        }
+
+        private async Task LavaNode_OnTrackException(Victoria.Node.EventArgs.TrackExceptionEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            logger.LogError($"Error playing {arg.Track?.Title} from {arg.Track?.Source}. Error:\n{arg.Exception}");
+
+            var currentChannel = arg.Player?.TextChannel;
+
+            if (currentChannel != null)
+            {
+                await currentChannel.SendMessageAsync($"Error playing {arg.Track?.Title} from {arg.Track?.Source}.");
+            }
+            else
+            {
+                logger.LogError($"Unable to find channel for channel Id{currentChannel?.Id} to notify user of the error.");
+            }
+        }
+
+        private async Task LavaNode_OnTrackStuck(Victoria.Node.EventArgs.TrackStuckEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            logger.LogInformation($"{nameof(LavaNode_OnTrackStuck)} event has been raised. Track name {arg.Track?.Title}. Threshold {arg.Threshold}");
+            if (arg.Threshold > TimeSpan.FromSeconds(5).Seconds)
+            {
+                await arg.Player.TextChannel.SendMessageAsync($"track {arg.Track?.Title} is stuck. Skipping track...");
+                if (arg.Player.Vueue.Any())
+                {
+                    await arg.Player.SkipAsync();
+                }
+                else
+                {
+                    await arg.Player.StopAsync();
+                }
+            }
         }
 
         public async Task InitializeAsync() 
@@ -115,7 +182,7 @@ namespace OuterHeavenBot.Services
 
             try
             {
-                LavaPlayer? player = null;
+                LavaPlayer<LavaTrack>? player = null;
 
                 if (System.Diagnostics.Debugger.IsAttached && !context.InVoiceChannel())
                 {
@@ -195,81 +262,9 @@ namespace OuterHeavenBot.Services
         #endregion
 
         #region lavanodeEvents 
-    
-        private Task Lavanode_OnWebSocketClosed(WebSocketClosedEventArgs arg)
-        {
-            logger.LogInformation($"Websocket Closed reason: {arg.Reason} {arg.Code}");
-            return Task.CompletedTask;
-        }
-
-        private async Task Lavanode_OnTrackEnded(TrackEndedEventArgs arg)
-        {
-            logger.LogInformation($"{nameof(Lavanode_OnTrackEnded)} event has been raised. Reason {arg.Reason}");
-            if (arg.Reason == TrackEndReason.Finished && 
-                arg.Player != null && 
-                arg.Player.Queue.TryDequeue(out LavaTrack nextTrack))        
-            {
-                await arg.Player.PlayAsync(nextTrack);
-            }
-
-            if (arg.Reason == TrackEndReason.Stopped) 
-            {
-                logger.LogInformation($"Stop requested. Clearing {arg.Player?.Queue?.Count() ?? 0} songs from the queue");
-                arg.Player?.Queue?.Clear();
-            }
-         
-            if(arg.Player?.Track == null && (arg.Player?.Queue == null || !arg.Player.Queue.Any()))
-            {
-                logger.LogInformation($"Nothing left to play. Will wait {timeWaitUntilDisconnect} before disconnecting");
-                await Task.Run(async () => await CheckForIdelDisconnect(arg.Player));
-            }
-        }
-
-        private async Task Lavanode_OnTrackStarted(TrackStartEventArgs arg)
-        { 
-            await arg.Player.TextChannel.SendMessageAsync($"Now playing: {arg.Track.Title} - {arg.Track.Author} - {arg.Track.Duration}");
-        }
-
-        private async Task Lavanode_OnTrackException(TrackExceptionEventArgs arg)
-        {
-            logger.LogError($"Error playing {arg.Track.Title} from {arg.Track.Source}. Error:\n{arg.Exception}");
-          
-            var currentChannel = arg.Player?.TextChannel;
-          
-            if (currentChannel != null)
-            {
-                await currentChannel.SendMessageAsync($"Error playing {arg.Track.Title} from {arg.Track.Source}.");
-            }
-            else
-            {
-                logger.LogError($"Unable to find channel for channel Id{currentChannel?.Id} to notify user of the error.");
-            }
-        }
-
-        private async Task Lavanode_OnTrackStuck(TrackStuckEventArgs arg)
-        {
-            logger.LogInformation($"{nameof(Lavanode_OnTrackStuck)} event has been raised. Track name {arg.Track?.Title}. Threshold {arg.Threshold}");
-            if (arg.Threshold > TimeSpan.FromSeconds(5))
-            {
-                await arg.Player.TextChannel.SendMessageAsync($"track {arg.Track?.Title} is stuck. Skipping track...");
-                if (arg.Player.Queue.Any())
-                {
-                    await arg.Player.SkipAsync();
-                }
-                else
-                {
-                    await arg.Player.StopAsync();
-                }
-            }
-        }
-        private Task Lavanode_OnLog(LogMessage arg)
-        { 
-            logger.Log(Helpers.ToMicrosoftLogLevel(arg.Severity), $"{arg.Message}\n{arg.Exception}");
-            return Task.CompletedTask;
-        }
-        #endregion
-
-
+     
+      
+        #endregion 
         public async Task GoTo(TimeSpan time,SocketCommandContext context)
         {
             var channel = context.ToTextChannel();
@@ -316,28 +311,28 @@ namespace OuterHeavenBot.Services
 
             var player = GetCurrentPlayer();
            
-            if (player == null || player.Queue == null ||!player.Queue.Any())
+            if (player == null || player.Vueue == null ||!player.Vueue.Any())
             {
                 await channel.SendMessageAsync("Que is currently empty!");
                 return;
             }
             else if (!index.HasValue)
             {
-                await channel.SendMessageAsync($"Clearing {player?.Queue?.Count} songs from the queue");
-                player?.Queue?.Clear();
+                await channel.SendMessageAsync($"Clearing {player?.Vueue?.Count} songs from the queue");
+                player?.Vueue?.Clear();
             }
             else
             {
-                if (index.Value > 0 && index.Value - 1 < player.Queue.Count)
+                if (index.Value > 0 && index.Value - 1 < player.Vueue.Count)
                 {
-                    var trackToKill = player.Queue.ElementAt(index.Value - 1);
+                    var trackToKill = player.Vueue.ElementAt(index.Value - 1);
 
-                    player.Queue.Remove(trackToKill);
+                    player.Vueue.Remove(trackToKill);
                     await channel.SendMessageAsync($"Clearing {trackToKill.Title} from the queue");
                 }
                 else
                 {
-                    await channel.SendMessageAsync($"Invalid index. Please enter a value between 1 - {player.Queue.Count}");
+                    await channel.SendMessageAsync($"Invalid index. Please enter a value between 1 - {player.Vueue.Count}");
                 }
             }
         }
@@ -421,7 +416,7 @@ namespace OuterHeavenBot.Services
             if(player == null || player.Track == null) return tracks;
 
             tracks.Add(player.Track);
-            if(player.Queue.Any()) tracks.AddRange(player.Queue);
+            if(player.Vueue.Any()) tracks.AddRange(player.Vueue);
 
             return tracks;
         }
@@ -442,7 +437,7 @@ namespace OuterHeavenBot.Services
                 }
 
                 var player = GetCurrentPlayer();
-                if (player == null || player.Queue == null)
+                if (player == null || player.Vueue == null)
                 {
                     await channel.SendMessageAsync($"There's nothing to skip!");
                     return;
@@ -451,7 +446,7 @@ namespace OuterHeavenBot.Services
                 if (player.Track != null)
                 {
                     await channel.SendMessageAsync($"Skipping - {player.Track.Title}");
-                    if (player.Queue.Any())
+                    if (player.Vueue.Any())
                     {
                         var skip = await player.SkipAsync(TimeSpan.FromSeconds(0));
                     }
@@ -504,7 +499,7 @@ namespace OuterHeavenBot.Services
            context.ToVoiceChannel()?.Id != GetCurrentPlayer()?.VoiceChannel.Id && 
            GetCurrentPlayer()?.PlayerState == PlayerState.Playing;
       
-        private async Task ProcessTrack(SearchResponse response, string argumentsUsed, LavaPlayer? player, ITextChannel commandChannel)
+        private async Task ProcessTrack(SearchResponse response, string argumentsUsed, LavaPlayer<LavaTrack>? player, ITextChannel commandChannel)
         { 
 
            var track = response.Tracks.Count > 1 ? 
@@ -515,7 +510,7 @@ namespace OuterHeavenBot.Services
 
             if (player.PlayerState == PlayerState.Playing)
             {
-                player.Queue.Enqueue(track);
+                player.Vueue.Enqueue(track);
                 await commandChannel.SendMessageAsync($"Track {track.Title} has been queued!");  
             }
             else
@@ -547,21 +542,22 @@ namespace OuterHeavenBot.Services
             return track;
         }
 
-        private async Task ProcessPlayList(SearchResponse searchResponse, LavaPlayer? player, ITextChannel commandChannel)
+        private async Task ProcessPlayList(SearchResponse searchResponse, LavaPlayer<LavaTrack>? player, ITextChannel commandChannel)
         {
             if (player == null || !searchResponse.Tracks.Any()) return;
-
-          
+             
             var firstTrack = searchResponse.Playlist.SelectedTrack < searchResponse.Tracks.Count && searchResponse.Playlist.SelectedTrack > -1 ?
                 searchResponse.Tracks.ElementAt(searchResponse.Playlist.SelectedTrack) : searchResponse.Tracks.FirstOrDefault();
-           
+          
+            if(firstTrack==null) return; 
+
             var playlistTrackNames = string.Join(", ", searchResponse.Tracks.Select(x => x.Title).ToList());
 
             logger.LogInfo($"Search results are a play list. Will process the following playlist {searchResponse.Playlist.Name ?? ""} with tracks - {playlistTrackNames}");
 
             if (player.PlayerState == PlayerState.Playing)
             {
-                player.Queue.Enqueue(firstTrack);
+                player.Vueue.Enqueue(firstTrack);
                 await commandChannel.SendMessageAsync($"Queing playlist {searchResponse.Playlist.Name}");
             }
             else
@@ -572,10 +568,10 @@ namespace OuterHeavenBot.Services
 
             foreach (var track in searchResponse.Tracks.Where(predicate: x => x.Id != firstTrack.Id))
             {
-                player.Queue.Enqueue(track);
+                player.Vueue.Enqueue(track);
             }
         }
-        private async Task CheckForIdelDisconnect(LavaPlayer? lavaPlayer)
+        private async Task CheckForIdelDisconnect(LavaPlayer<LavaTrack> lavaPlayer)
         {
             var disconnectTime = DateTime.UtcNow.AddMinutes(timeWaitUntilDisconnect.Minutes);
             while (lavaPlayer != null && lavaPlayer.VoiceChannel != null && lavaPlayer.PlayerState != PlayerState.Playing)
@@ -584,12 +580,13 @@ namespace OuterHeavenBot.Services
                 {
                     logger.LogInformation("Idle time limit has been reached. Disconnecting");
                     await lavaNode.LeaveAsync(lavaPlayer.VoiceChannel);
+                    break;
                 }
             }
         }
         private string ConvertTrackToTrackInfo(LavaTrack track) => $"{track.Title} - {track.Author} - {track.Duration - track.Position} - {track.Url}";
 
-        private async Task<LavaPlayer?> JoinPlayer(IVoiceChannel voiceChannel, ITextChannel textChannel)
+        private async Task<LavaPlayer<LavaTrack>?> JoinPlayer(IVoiceChannel voiceChannel, ITextChannel textChannel)
         {
 
             if (this.guildId.HasValue &&                 
@@ -602,11 +599,13 @@ namespace OuterHeavenBot.Services
 
             this.guildId = voiceChannel.GuildId;         
             var player = GetCurrentPlayer();
+           
             if(player == null)
             {
                 player = await lavaNode.JoinAsync(voiceChannel, textChannel) ?? throw new ArgumentNullException(nameof(lavaNode));
                 logger.LogInfo($"Player not currently in a channel. Creating player for {player.VoiceChannel.Name}");
             } 
+
             return player;
         }
 
@@ -650,21 +649,15 @@ namespace OuterHeavenBot.Services
             }
             return response;          
         }
-        private LavaPlayer? GetCurrentPlayer()
+        private LavaPlayer<LavaTrack>? GetCurrentPlayer()
         { 
             if (!this.guildId.HasValue)
             {
+                logger.LogDebug("No guild id found for current player");
                 return null;
             }
 
-            LavaPlayer? player = null;
-           
-            //this doesn't work. It will say lava link is connected when it isn't/
-            //if (!lavaNode.IsConnected)
-            //{
-            //  logger.LogInformation("Lavalink is not connected. Forcing reconnect");                
-            //  lavaNode.ConnectAsync().GetAwaiter().GetResult();
-            //}
+            LavaPlayer<LavaTrack>? player = null;           
 
             lavaNode?.TryGetPlayer(discordClient.GetGuild(guildId.Value) ?? default, out player);
 

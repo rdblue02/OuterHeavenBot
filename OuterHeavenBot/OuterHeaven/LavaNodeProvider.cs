@@ -1,5 +1,6 @@
 ﻿using OuterHeavenBot.Clients;
 using Victoria;
+using Victoria.Node;
 
 namespace OuterHeavenBot.OuterHeaven
 {
@@ -10,11 +11,11 @@ namespace OuterHeavenBot.OuterHeaven
         public LavaNodeProvider(IServiceProvider serviceProvider)
         {
             this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(IServiceProvider));
-            this.lavaNode = new LavaNode(serviceProvider.GetRequiredService<OuterHeavenDiscordClient>(), serviceProvider.GetRequiredService<LavaConfig>());
+            this.lavaNode = new LavaNode(serviceProvider.GetRequiredService<OuterHeavenDiscordClient>(), serviceProvider.GetRequiredService<NodeConfiguration>(),serviceProvider.GetRequiredService<ILogger<LavaNode>>());
         }
 
         public LavaNode GetLavaNode() =>
                         lavaNode == null ? 
-                        new LavaNode(serviceProvider.GetRequiredService<OuterHeavenDiscordClient>(), serviceProvider.GetRequiredService<LavaConfig>()) : lavaNode;
+                        new LavaNode(serviceProvider.GetRequiredService<OuterHeavenDiscordClient>(), serviceProvider.GetRequiredService<NodeConfiguration>(), serviceProvider.GetRequiredService<ILogger<LavaNode>>()) : lavaNode;
     }
 }

@@ -9,8 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Victoria;
-using Victoria.Enums;
+using Victoria; 
 using Victoria.Responses.Search;
 namespace OuterHeavenBot.Commands.Modules
 {

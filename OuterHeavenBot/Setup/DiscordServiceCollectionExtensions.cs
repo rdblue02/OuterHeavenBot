@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Victoria;
+using Victoria.Node;
 
 namespace OuterHeavenBot.Setup
 {
@@ -39,15 +40,21 @@ namespace OuterHeavenBot.Setup
             services.AddSingleton<MusicService>();
             services.AddSingleton<OuterHeavenCommandHandler>();
             services.AddSingleton<OuterHeavenDiscordClient>();
-            services.AddSingleton(new LavaConfig()
-            {
-                LogSeverity = Discord.LogSeverity.Verbose,
+            services.AddSingleton(new NodeConfiguration()
+            { 
                 Authorization = "0_9_21_2021",
-                ReconnectDelay = TimeSpan.FromSeconds(5),
+                ResumeTimeout = TimeSpan.FromSeconds(10),
                 EnableResume = true,
                 Port = 50224,
                 Hostname = "127.0.0.1",
-                SelfDeaf = true
+                SelfDeaf = true,
+                IsSecure =false,
+                 SocketConfiguration = new Victoria.WebSocket.WebSocketConfiguration()
+                 {
+                      BufferSize = 1000,
+                      ReconnectAttempts= 5,
+                      ReconnectDelay = TimeSpan.FromSeconds(5)
+                 }
             });
             services.AddSingleton<LavaNodeProvider>();
             return services;

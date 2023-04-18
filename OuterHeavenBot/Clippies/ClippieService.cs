@@ -91,21 +91,8 @@ namespace OuterHeavenBot.Services
         public async Task PlayClippie(string contentRequested, SocketCommandContext context, CancellationToken cancellationToken = default)
         {
             try
-            {
-                //this is so I can test the clippie bot while hanging out in a different discord.
-                //obviously you can't hear whats played but I can debug logic errors at least.
-                //if (System.Diagnostics.Debugger.IsAttached && context.Channel is not IVoiceState)
-                //{
-
-                //    var voiceChannel = context.Guild.Channels.OfType<IVoiceChannel>().FirstOrDefault(x=>x.GuildId==context.Guild.Id);
-                //    logger.LogWarning($"DEBUG MODE ENABLED! Clippies are being played in the first available voice channel.{voiceChannel?.Name}");
-                  
-                //    if (voiceChannel != null) await PlayClippie(contentRequested, voiceChannel, cancellationToken);
-                  
-                //    return;
-                //}
-
-                if (context.User is IGuildUser voice)
+            { 
+                if (context.User is IVoiceState voice && voice.VoiceChannel != null)
                 {
                     await PlayClippie(contentRequested,context.Channel, voice.VoiceChannel, cancellationToken);
                     clippliePlayerState = ClippliePlayerState.Available;
