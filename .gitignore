@@ -10,3 +10,5 @@
 /OuterHeavenBot/appsettings.json
 /OuterHeavenBot/clips
 /OuterHeavenBot/BotLogs
+/OuterHeavenBot.Lavalink/bin/Debug/net8.0
+/OuterHeavenBot.Lavalink/obj
