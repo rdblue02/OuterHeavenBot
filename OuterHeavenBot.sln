@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31919.166
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OuterHeavenBot", "OuterHeavenBot\OuterHeavenBot.csproj", "{0882FB08-C3A2-4774-9178-8C3214929C92}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OuterHeavenBot.Lavalink", "OuterHeavenBot.Lavalink\OuterHeavenBot.Lavalink.csproj", "{215FCB6B-6A5A-46AA-9506-85588D6224E5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{0882FB08-C3A2-4774-9178-8C3214929C92}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0882FB08-C3A2-4774-9178-8C3214929C92}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0882FB08-C3A2-4774-9178-8C3214929C92}.Release|Any CPU.Build.0 = Release|Any CPU
+		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
