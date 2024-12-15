@@ -11,14 +11,14 @@ namespace OuterHeavenBot.Lavalink.EventArgs
         /// <summary>
         /// The track that caused the exception
         /// </summary>
-        public LavalinkTrack Track { get; }
+        public LavalinkTrack? Track { get; }
 
         /// <summary>
         /// The exception that was thrown
         /// </summary>
-        public LavalinkException Exception { get; }
+        public LavalinkException? Exception { get; }
 
-        public PlaybackExceptionEventArgs(LavalinkTrack track, LavalinkException exception)
+        public PlaybackExceptionEventArgs(LavalinkTrack? track, LavalinkException? exception)
         {
             Track = track;
             Exception = exception;
@@ -29,26 +29,25 @@ namespace OuterHeavenBot.Lavalink.EventArgs
         /// <summary>
         /// The track that finished playing
         /// </summary>
-        public LavalinkTrack Track { get; }
+        public LavalinkTrack? Track { get; }
 
         /// <summary>
         /// The reason the track ended
         /// </summary>
         public LavalinkTrackEndReason EndReason { get; }
 
-        public PlaybackFinishedEventArgs(LavalinkTrack track, LavalinkTrackEndReason endReason)
+        public PlaybackFinishedEventArgs(LavalinkTrack? track, LavalinkTrackEndReason endReason)
         {
             Track = track;
             EndReason = endReason;
         }
-    }
-
+    } 
     public class PlaybackStartedEventArgs  
     {
         /// <summary>
         /// The track that started playing
         /// </summary>
-        public LavalinkTrack Track { get; }
+        public LavalinkTrack? Track { get; }
 
         public PlaybackStartedEventArgs(LavalinkTrack track)
         {
@@ -61,7 +60,7 @@ namespace OuterHeavenBot.Lavalink.EventArgs
         /// <summary>
         /// The track that got stuck
         /// </summary>
-        public LavalinkTrack Track { get; }
+        public LavalinkTrack? Track { get; }
 
         /// <summary>
         /// The threshold in milliseconds
@@ -74,28 +73,15 @@ namespace OuterHeavenBot.Lavalink.EventArgs
             ThresholdMs = thresholdMs;
         }
     }
-
-    public class PlayerInternalError  
-    {
-        /// <summary>
-        /// Exception that was thrown
-        /// </summary>
-        public Exception Exception { get; }
-
-        public PlayerInternalError(Exception exception)
-        {
-            Exception = exception;
-        }
-    }
-
+  
     public class PlayerUpdateEventArgs  
     {
         /// <summary>
         /// The player state
         /// </summary>
-        public object State { get; }
+        public LavalinkPlayerState State { get; }
 
-        public PlayerUpdateEventArgs(LavalinkTrack state)
+        public PlayerUpdateEventArgs(LavalinkPlayerState state)
         {
             State = state;
         }
@@ -111,8 +97,9 @@ namespace OuterHeavenBot.Lavalink.EventArgs
         /// The close reason
         /// </summary>
         public string Reason { get; }
+   
         /// <summary>
-        /// Whether the connection was closed by DiscordClient
+        /// Whether the lavalinkConnection was closed by client
         /// </summary>
         public bool ByRemote { get; }
 

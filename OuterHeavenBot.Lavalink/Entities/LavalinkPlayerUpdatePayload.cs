@@ -54,7 +54,7 @@ namespace OuterHeavenBot.Lavalink.Entities
         public LavalinkFilters? Filters { get; set; }
 
         /// <summary>
-        /// Information required for connecting to DiscordClient, without connected or ping
+        /// Information required for connecting to client, without connected or ping
         /// </summary>
         [JsonProperty("voice", NullValueHandling = NullValueHandling.Ignore)]
         public LavalinkVoiceState? VoiceState { get; set; }

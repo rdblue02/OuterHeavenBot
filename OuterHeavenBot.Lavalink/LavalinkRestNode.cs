@@ -34,6 +34,8 @@ namespace OuterHeavenBot.Lavalink
         }
 
         #region Track resolvers
+
+    
         public async Task<LavalinkLoadable> ResolveTracks(string query)
         {
             var builder = new UriBuilder(new Uri(string.Format(LavalinkEndpoints.TRACK_RESOLVE, _httpClient.BaseAddress)));

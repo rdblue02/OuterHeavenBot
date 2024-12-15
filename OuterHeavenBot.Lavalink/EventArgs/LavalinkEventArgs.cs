@@ -9,7 +9,9 @@ using System.Threading.Tasks;
 namespace OuterHeavenBot.Lavalink.EventArgs
 { 
     
-    public class LavalinkClientExceptionEventArgs
+     
+
+    public class LavalinkClientExceptionEventArgs 
     { 
         public Exception Exception { get; }
         public LavalinkClientExceptionEventArgs(Exception exception)

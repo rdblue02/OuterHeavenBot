@@ -4,54 +4,52 @@ using Discord;
 using OuterHeavenBot.Lavalink.Entities;
 using Newtonsoft.Json;
 using Microsoft.VisualBasic;
+using Discord.WebSocket;
 namespace OuterHeavenBot.Lavalink
 {
     public class LavalinkGuildConnection
     {
-        public event Func<LavalinkGuildConnection, PlaybackStartedEventArgs, Task> OnTrackStart;
-        public event Func<LavalinkGuildConnection, PlaybackFinishedEventArgs,Task> OnTrackFinish;
-        public event Func<LavalinkGuildConnection, PlaybackExceptionEventArgs, Task> OnTrackException;
-        public event Func<LavalinkGuildConnection, PlaybackStuckEventArgs, Task> OnTrackStuck;
-        public event Func<LavalinkGuildConnection, PlayerUpdateEventArgs, Task> OnPlayerUpdate;
-        public event Func<LavalinkGuildConnection, PlayerWebsocketClosedEventArgs, Task> OnWebsocketClosed;
-        public event Func<LavalinkGuildConnection, PlayerInternalError, Task> OnPlayerError;
+        public event Func<LavalinkGuildConnection, PlaybackStartedEventArgs, Task>? OnTrackStart;
+        public event Func<LavalinkGuildConnection, PlaybackFinishedEventArgs, Task>? OnTrackFinish;
+        public event Func<LavalinkGuildConnection, PlaybackExceptionEventArgs, Task>? OnTrackException;
+        public event Func<LavalinkGuildConnection, PlaybackStuckEventArgs, Task>? OnTrackStuck;
+        public event Func<LavalinkGuildConnection, PlayerUpdateEventArgs, Task>? OnPlayerUpdate;
+        public event Func<LavalinkGuildConnection, PlayerWebsocketClosedEventArgs, Task>? OnWebsocketClosed; 
 
-        internal VoiceServerUpdateEventArgs VoiceServerUpdateEventArgs { get; set; }
-        internal VoiceStateUpdateEventArgs VoiceStateUpdateEventArgs { get; set; }
-        public IVoiceState VoiceState => VoiceStateUpdateEventArgs.Channel;
-        public bool IsConnected => VoiceState != null;
-        public LavalinkPlayerState State { get; set; }
+        public IVoiceState? VoiceState { get; private set; }
+        public bool IsConnected => VoiceState != null && 
+                    VoiceState.VoiceChannel != null;
+        public LavalinkPlayerState? State { get; internal set; } 
+        private readonly LavalinkNode node;
+        
 
-        private LavalinkNode node;
-        public LavalinkGuildConnection(LavalinkNode node,
-                                       VoiceServerUpdateEventArgs voiceServerUpdate,
-                                       VoiceStateUpdateEventArgs voiceStateUpdate)
+        public LavalinkGuildConnection(LavalinkNode node, 
+                                       IVoiceState voiceState)
         {
-            this.VoiceServerUpdateEventArgs = voiceServerUpdate;
-            this.VoiceStateUpdateEventArgs = voiceStateUpdate;
-            this.node = node;
-        }
-        public async Task PlayAsync(LavalinkTrack track)
-        {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
+            this.node = node; 
+            this.VoiceState = voiceState;
+        } 
 
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+        public async Task PlayTrackAsync(LavalinkTrack track)
+        {
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 EncodedTrack = track.Encoded
             });
         }
-
-        public async Task StopAsync()
+      
+        public async Task LeaveAsync()
         {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
+            ThrowOnNotReady();
+            await node.Rest.DestroyPlayer(VoiceState.VoiceChannel.GuildId);
+            await VoiceState.VoiceChannel.DisconnectAsync();
+        }
 
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+        public async Task RemoveActiveTrackAsync()
+        {
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 EncodedTrack = null
             });
@@ -59,12 +57,8 @@ namespace OuterHeavenBot.Lavalink
 
         public async Task PauseAsync()
         {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
-
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 Paused = true
             });
@@ -72,12 +66,8 @@ namespace OuterHeavenBot.Lavalink
 
         public async Task ResumeAsync()
         {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
-
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 Paused = false
             });
@@ -85,12 +75,8 @@ namespace OuterHeavenBot.Lavalink
 
         public async Task SeekAsync(TimeSpan position)
         {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
-
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 Position = position.Milliseconds
             });
@@ -98,12 +84,8 @@ namespace OuterHeavenBot.Lavalink
 
         public async Task SetVolumeAsync(int volume)
         {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
-
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 Volume = volume
             });
@@ -111,12 +93,8 @@ namespace OuterHeavenBot.Lavalink
 
         public async Task SetFilterVolumeAsync(int volume)
         {
-            if (!node.IsReady || !IsConnected)
-            {
-                throw new InvalidOperationException("Node is not ready or not connected");
-            }
-
-            await node.Rest.UpdatePlayer(VoiceStateUpdateEventArgs.Guild.Id, new LavalinkPlayerUpdatePayload
+            ThrowOnNotReady();
+            await node.Rest.UpdatePlayer(VoiceState?.VoiceChannel?.GuildId ?? 0, new LavalinkPlayerUpdatePayload
             {
                 Filters = new()
                 {
@@ -124,72 +102,40 @@ namespace OuterHeavenBot.Lavalink
                 }
             });
         }
-
-        public async Task DisconnectAsync()
+         
+        public async Task HandleLavalinkEvent<T>(T eventPayload)
+        {
+            if (eventPayload is PlaybackStartedEventArgs pbevent)
+            {
+                await OnTrackStart.FireEventAsync(this, pbevent); 
+            }
+            else if (eventPayload is PlaybackFinishedEventArgs pfevent)
+            {
+                await OnTrackFinish.FireEventAsync(this, pfevent);                
+            }
+            else if (eventPayload is PlaybackExceptionEventArgs peevent)
+            {
+                await OnTrackException.FireEventAsync(this, peevent); 
+            }
+            else if (eventPayload is PlayerUpdateEventArgs puevent)
+            {
+                await OnPlayerUpdate.FireEventAsync(this, puevent); 
+            }
+            else if (eventPayload is PlayerWebsocketClosedEventArgs pwcevent)
+            {
+                await OnWebsocketClosed.FireEventAsync(this, pwcevent); 
+            }
+            else
+            {
+                throw new InvalidOperationException($"invalid event type {typeof(T)}");
+            }
+        } 
+        void ThrowOnNotReady()
         {
             if (!node.IsReady || !IsConnected)
             {
                 throw new InvalidOperationException("Node is not ready or not connected");
             }
-
-            //Disconnecting from the voice channel
-            var vsd = new VoiceDispatch
-            {
-                OpCode = 4,
-                Payload = new VoiceStateUpdatePayload
-                {
-                    GuildId = VoiceStateUpdateEventArgs.Guild.Id,
-                    ChannelId = null,
-                    Deafened = false,
-                    Muted = false
-                }
-            };
-
-            var vsdJson = JsonConvert.SerializeObject(vsd);
-            node.DiscordWsSendAsync(vsdJson);
-
-            //Removing the connection from the node
-            await node.Rest.DestroyPlayer(VoiceStateUpdateEventArgs.Guild.Id);
-        }
-
-        public async Task HandleLavalinkEvent<T>(T eventPayload)
-        {
-            if (eventPayload is PlaybackStartedEventArgs)
-            {
-                await HandleEventAsync<PlaybackStartedEventArgs>(OnTrackStart.GetInvocationList(), eventPayload);
-            }
-            else if (eventPayload is PlaybackFinishedEventArgs)
-            {
-                await HandleEventAsync<PlaybackFinishedEventArgs>(OnTrackFinish.GetInvocationList(), eventPayload);
-            }
-            else if (eventPayload is PlaybackExceptionEventArgs)
-            {
-                await HandleEventAsync<PlaybackExceptionEventArgs>(OnTrackException.GetInvocationList(), eventPayload);
-            }
-            else if (eventPayload is PlayerUpdateEventArgs)
-            {
-                await HandleEventAsync<PlayerUpdateEventArgs>(OnPlayerUpdate.GetInvocationList(), eventPayload);
-            }
-            else if (eventPayload is PlayerWebsocketClosedEventArgs)
-            {
-                await HandleEventAsync<PlayerWebsocketClosedEventArgs>(OnWebsocketClosed.GetInvocationList(), eventPayload);
-            }
-            else
-            {
-                throw new InvalidOperationException($"invalid event type {typeof(T)}");
-            } 
-        }
-
-       async Task HandleEventAsync<T>(Delegate[] delegates, object args)  
-       {  
-            var tasks = new Task[delegates.Length];
-            for (int i = 0; i < tasks.Length; i++) 
-            {
-              var task = ((Func<object, T, Task>)delegates[i])(this, (T)args);
-                tasks[i] = task;
-            }
-
-            await Task.WhenAll(tasks); 
         }
     }
 }

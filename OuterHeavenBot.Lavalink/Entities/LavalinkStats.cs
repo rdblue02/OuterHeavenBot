@@ -58,7 +58,7 @@ namespace OuterHeavenBot.Lavalink.Entities
     public class LavalinkFrameStats
     {
         /// <summary>
-        /// The amount of frames sent to DiscordClient
+        /// The amount of frames sent to client
         /// </summary>
         [JsonProperty("sent")]
         public long Sent { get; set; }

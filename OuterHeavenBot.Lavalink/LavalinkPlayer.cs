@@ -12,19 +12,19 @@ namespace OuterHeavenBot.Lavalink
     public class LavalinkVoiceState
     {
         /// <summary>
-        /// The DiscordClient voice token to authenticate with
+        /// The client voice token to authenticate with
         /// </summary>
         [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
         public string Token { get; set; }
 
         /// <summary>
-        /// The DiscordClient voice endpoint to connect to
+        /// The client voice endpoint to connect to
         /// </summary>
         [JsonProperty("endpoint", NullValueHandling = NullValueHandling.Ignore)]
         public string Endpoint { get; set; }
 
         /// <summary>
-        /// The DiscordClient voice session id to authenticate with
+        /// The client voice session id to authenticate with
         /// </summary>
         [JsonProperty("sessionId", NullValueHandling = NullValueHandling.Ignore)]
         public string SessionId { get; set; }
@@ -241,7 +241,7 @@ namespace OuterHeavenBot.Lavalink
         public bool Connected { get; internal set; }
 
         /// <summary>
-        /// The ping of the node to the DiscordClient voice server in milliseconds (-1 if not connected)
+        /// The ping of the node to the client voice server in milliseconds (-1 if not connected)
         /// </summary>
         [JsonIgnore]
         [JsonProperty("ping")]
