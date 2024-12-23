@@ -182,9 +182,9 @@ namespace OuterHeavenBot.Client.Services
 
             return commandResult;
         }
-        private async Task CurrentConnections_OnTrackStart(LavalinkGuildConnection connection, PlaybackStartedEventArgs arg2)
+        private  Task CurrentConnections_OnTrackStart(LavalinkGuildConnection connection, PlaybackStartedEventArgs arg2)
         {
-            await connection!.VoiceState!.VoiceChannel.SendMessageAsync($"Now playing track {arg2?.Track?.Info.Title}");
+            return Task.CompletedTask;
         }
 
         private async Task CurrentConnections_OnTrackStuck(LavalinkGuildConnection connection, PlaybackStuckEventArgs arg2)

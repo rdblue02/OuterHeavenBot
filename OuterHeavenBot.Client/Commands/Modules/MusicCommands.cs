@@ -1,6 +1,5 @@
 ﻿using Discord;
-using Discord.Commands;
-using OuterHeavenBot.Core.CommandValidation;
+using Discord.Commands; 
 using OuterHeavenBot.Core;
 using OuterHeavenBot.Core.Extensions;
 using OuterHeavenBot.Lavalink;
@@ -50,7 +49,8 @@ namespace OuterHeavenBot.Client.Commands.Modules
                 }
 
                 var result = tracks.Count == 1 ? await musicService.QueueTrack(voice, tracks.First()) :
-                                                 await musicService.QueuePlayList(voice, tracks); 
+                                                 await musicService.QueuePlayList(voice, tracks);
+               
 
                 await ReplyAsync(result.Message);
             }

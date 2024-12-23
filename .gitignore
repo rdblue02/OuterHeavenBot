@@ -19,3 +19,5 @@
 /OuterHeavenBot.Client/clips
 /OuterHeavenBot.Core/bin/Debug/net8.0
 /OuterHeavenBot.Core/obj
+*/vs
+*/bin

@@ -3,6 +3,7 @@ using OuterHeavenBot.Lavalink;
 using OuterHeavenBot.Client.Commands.Handlers;
 using OuterHeavenBot.Core;
 using OuterHeavenBot.Client.Services;
+using OuterHeavenBot.Core.Models;
 namespace OuterHeavenBot.Client
 {
     public class Program
