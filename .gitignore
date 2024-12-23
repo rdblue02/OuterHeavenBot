@@ -10,3 +10,14 @@
 /OuterHeavenBot/appsettings.json
 /OuterHeavenBot/clips
 /OuterHeavenBot/BotLogs
+/OuterHeavenBot.Lavalink/bin/Debug/net8.0
+/OuterHeavenBot.Lavalink/obj
+/OuterHeavenBot.Client/bin/Debug/net8.0
+/OuterHeavenBot.Client/obj
+/OuterHeavenBot.Client/appsettings.Development.json
+/OuterHeavenBot.Client/appsettings.json
+/OuterHeavenBot.Client/clips
+/OuterHeavenBot.Core/bin/Debug/net8.0
+/OuterHeavenBot.Core/obj
+*/vs
+*/bin

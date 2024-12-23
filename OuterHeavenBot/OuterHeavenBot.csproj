@@ -18,8 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Discord.Net" Version="3.10.0" />
-    <PackageReference Include="Victoria" Version="6.0.23.324" />
+    <PackageReference Include="Discord.Net" Version="3.16.0" />
   </ItemGroup>
 
   <ItemGroup>
