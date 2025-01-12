@@ -19,6 +19,7 @@ namespace OuterHeaven.LavalinkLight
         {
             this.logger = logger;
             this.musicService = musicService;
+
         }
          
         [Command("play", RunMode = RunMode.Async)]
@@ -32,6 +33,7 @@ namespace OuterHeaven.LavalinkLight
             catch (Exception e)
             {
                 logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
             }
         }
 
@@ -40,27 +42,54 @@ namespace OuterHeaven.LavalinkLight
         public async Task Skip()
         {
             try
-            {  
+            {
+                var trackInfo = musicService.GetCurrentTrackInfo();
+                if (trackInfo == null)
+                {
+                    await ReplyAsync("Nothing to skip");
+                    return;
+                }
                 await musicService.Skip(); 
             }
             catch (Exception e)
             {
                 logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
             }
         }
-         
-        [Command("clearqueue", RunMode = RunMode.Async)]
-        [Alias("cq")]
-        public async Task ClearQ([Remainder] int? index = null)
+
+        [Command("queue", RunMode = RunMode.Async)]
+        [Alias("q")]
+        public async Task QueueInfo()
         {
             try
             {
-                await musicService.Skip();
-
+                var builder = musicService.GetQeueueInfo();
+                var message = builder.Build();
+               
+                await ReplyAsync(message);
             }
             catch (Exception e)
             {
                 logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
+            }
+        }
+
+        [Command("clearqueue", RunMode = RunMode.Async)]
+        [Alias("cq")]
+        public async Task ClearQueue([Remainder] int? position = null)
+        {
+            try
+            {
+              
+                var result = musicService.ClearQueue(position);
+                await ReplyAsync(result);
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
             }
         }   
     }

@@ -28,7 +28,7 @@ namespace OuterHeavenLight
         public MusicService(ILogger<MusicService> logger, 
                             Lava lava, 
                             DiscordSocketClient client,
-                             CommandHandler commandHandler) 
+                            CommandHandler commandHandler) 
         {
             this.logger = logger;
             this.lava = lava;  
@@ -45,17 +45,51 @@ namespace OuterHeavenLight
             logger.LogInformation("Initializing music service");
             await commandHandler.Initialize(new List<Type>() { typeof(BotCommands) }); 
         }
-        public void ClearQueue()
+
+        public LavaTrackInfo? GetCurrentTrackInfo()
         {
-            if(isPlaying)
+            if(!lava.IsPlaying)
             {
-                logger.LogInformation($"Clearing {queuedTracks.Count} tracks from the queue");
+                logger.LogInformation($"Skip requested for player when {nameof(lava.IsPlaying)} set to {lava.IsPlaying}");
+                return null;
+            }
+
+            return lava?.ActiveTrack?.info;
+        }
+
+        public QueueInfoMessageBuilder GetQeueueInfo()
+        {
+            return new QueueInfoMessageBuilder(this.queuedTracks.ToList());
+        }
+
+        public string ClearQueue(int? position = null)
+        {
+            var result = $"Queue is empty, nothing to clear.";
+            if (!isPlaying || this.queuedTracks.IsEmpty)
+            {
+                return result ;
+            }
+
+            if (!position.HasValue)
+            {
+                result = $"Clearing {queuedTracks.Count} tracks from the queue";
                 queuedTracks.Clear();
+                return result;
+            }
+
+            //users enter a 1 base index instead of zero based          
+            if (position.Value - 1 < 0 || position.Value > queuedTracks.Count - 1) 
+            {
+                result = $"Invalid index {position.Value}. Select a song within queue range {queuedTracks.Count +1}";
             }
             else
             {
-                logger.LogInformation("Queue is empty");
+                var temp = this.queuedTracks.ToList();
+                temp.RemoveAt(position.Value - 1);
+                this.queuedTracks = new ConcurrentQueue<LavaTrack>(temp); 
             }
+
+            return result;
         }
 
         public async Task Skip()
@@ -170,8 +204,7 @@ namespace OuterHeavenLight
                     {
                         logger.LogInformation("Idle timer has been reached. Disconnecting bot");
                         await lava.DisconnectFromChannel();
-                    }
-
+                    } 
                 });
                 return;
             }

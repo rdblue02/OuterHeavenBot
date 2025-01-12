@@ -2,6 +2,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Discord;
 using OuterHeaven.LavalinkLight;
+using OuterHeavenLight.Clippies;
 
 namespace OuterHeavenLight
 {
@@ -30,7 +31,13 @@ namespace OuterHeavenLight
             builder.Services.AddSingleton<LavalinkEndpointProvider>();
             builder.Services.AddSingleton<LavalinkRestNode>(); 
             builder.Services.AddSingleton<Lava>();
-            builder.Services.AddHostedService<Worker>();
+          //  builder.Services.AddHostedService<MusicWorker>();
+            //Clippie types
+            builder.Services.AddSingleton<ClippieCommands>();
+            builder.Services.AddSingleton<ClippieDiscordClient>();
+            builder.Services.AddSingleton<ClippieService>();
+            builder.Services.AddSingleton<ClippieCommandHandlerBase>();
+            builder.Services.AddHostedService<ClippieWorker>();
             var host = builder.Build();
             host.Run();
         }

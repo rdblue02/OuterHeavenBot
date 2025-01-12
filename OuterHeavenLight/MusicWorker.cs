@@ -2,12 +2,12 @@ using OuterHeaven.LavalinkLight;
 
 namespace OuterHeavenLight
 {
-    public class Worker : BackgroundService
+    public class MusicWorker : BackgroundService
     {
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger<MusicWorker> _logger;
         private readonly Lava lava;
         private readonly MusicService musicService;
-        public Worker(ILogger<Worker> logger, Lava lava,
+        public MusicWorker(ILogger<MusicWorker> logger, Lava lava,
                       MusicService musicService)
         {
             _logger = logger;

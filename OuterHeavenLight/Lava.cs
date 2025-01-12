@@ -37,7 +37,8 @@ namespace OuterHeaven.LavalinkLight
         private ConcurrentQueue<Func<Task>> pendingUpdates = new ConcurrentQueue<Func<Task>>(); 
         private VoiceState voiceState = new VoiceState(); 
         private LavaPlayer? player;
-        public bool IsPlaying => player?.track != null && !player.paused;
+        public bool IsPlaying => player?.track != null && !player.paused && this.IsConnected;
+        public LavaTrack? ActiveTrack => player?.track;
         public bool IsConnected => voiceState.VoiceLoaded();
         private bool listeningForUpdates = false;
         DateTime timeOfLastActivity = DateTime.UtcNow;
@@ -71,8 +72,8 @@ namespace OuterHeaven.LavalinkLight
                 if (update.state.position > 0 && update.state.connected)
                 {
                     //logger.LogInformation($"Updating last time of activity {timeOfLastActivity} to {DateTime.UtcNow}");
-                    timeOfLastActivity = DateTime.UtcNow;
-                }
+                    timeOfLastActivity = DateTime.UtcNow; 
+                } 
 
                 return Task.CompletedTask;
             };
@@ -82,8 +83,7 @@ namespace OuterHeaven.LavalinkLight
         {
             logger.LogInformation("Initializing lavalink");
             this.pendingUpdates.Clear();
-            this.voiceState = new VoiceState();
-       
+            this.voiceState = new VoiceState(); 
 
             var startTasks = new List<Task>()
             { 
@@ -134,6 +134,7 @@ namespace OuterHeaven.LavalinkLight
 
             logger.LogInformation($"Destroying player..\n {voiceState}");
             await this.restNode.DestroyPlayer(this.voiceState.GuildId, this.voiceState.LavaSessionId);
+            this.player = null;
         }
 
         public async Task StopPlayer()
@@ -154,8 +155,8 @@ namespace OuterHeaven.LavalinkLight
                 }
             };
            
-            logger.LogInformation($"Stopping player...\n {voiceState}");
-             await this.restNode.UpdatePlayer(this.voiceState.GuildId, this.voiceState.LavaSessionId,playerUpdate);
+             logger.LogInformation($"Stopping player...\n {voiceState}");
+            this.player = await this.restNode.UpdatePlayer(this.voiceState.GuildId, this.voiceState.LavaSessionId,playerUpdate);
         }
 
         public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
@@ -180,6 +181,8 @@ namespace OuterHeaven.LavalinkLight
                     logger.LogInformation($"Disconnecting from channel {channel.Name}");
                     await channel.DisconnectAsync();
                 }
+
+                this.player = null;
             }            
         }
 
