@@ -7,9 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using OuterHeavenLight.Clippies;
+using OuterHeavenLight.Constants;
 namespace OuterHeavenLight.Clippies
 {
-    public class ClippieCommandHandlerBase 
+    public class ClippieCommandHandler 
     {
         public bool IsInitialized { get; private set; } = false;
         protected readonly CommandService commandService;
@@ -21,9 +22,9 @@ namespace OuterHeavenLight.Clippies
         private const char Prefix = '~';
         
 
-        public ClippieCommandHandlerBase(CommandService commandService,
+        public ClippieCommandHandler(CommandService commandService,
                                          IServiceProvider serviceProvider,
-                                         ILogger<ClippieCommandHandlerBase> logger)
+                                         ILogger<ClippieCommandHandler> logger)
         {
             this.commandService = commandService ?? throw new ArgumentNullException(nameof(commandService));
             this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
@@ -60,6 +61,9 @@ namespace OuterHeavenLight.Clippies
                     throw new InvalidOperationException("Cannot accept command before being initialized");
                 }
 
+                var userMessage = message as SocketUserMessage;
+                if (userMessage == null || message.Author.IsBot) return;
+
                 var argPos = GetCommandArgPos(discordSocketClient.CurrentUser, message);
 
                 if (argPos < 1) 
@@ -67,7 +71,7 @@ namespace OuterHeavenLight.Clippies
                     logger.LogError($"Invalid message {message?.Content} sent by {message?.Author?.Username}");
                     return;
                 }
-
+ 
                 var context = new SocketCommandContext(discordSocketClient, message);
                 logger.LogInformation($"{discordSocketClient?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");
                 await commandService.ExecuteAsync(

@@ -15,6 +15,7 @@ using OuterHeavenLight.Entities.Request;
 using OuterHeavenLight.Entities.Response.Rest;
 using Microsoft.VisualBasic;
 using System.Reactive;
+using OuterHeavenLight;
 
 namespace OuterHeaven.LavalinkLight
 {
@@ -45,14 +46,13 @@ namespace OuterHeaven.LavalinkLight
         TimeSpan timeout = TimeSpan.FromSeconds(10);
 
         public Lava(ILogger<Lava> logger,
-                    DiscordSocketClient discordClient,
-                    AppSettings lavaSettings,
-                    IServiceProvider serviceProvider,
+                    DiscordClientProvider clientProvider,
+                    AppSettings lavaSettings, 
                     LavalinkEndpointProvider lavalinkEndpointProvider,
                     LavalinkRestNode lavalinkRest )
         {
             this.logger = logger; 
-            this.discordClient = discordClient;
+            this.discordClient = clientProvider.GetMusicClient() ?? throw new ArgumentNullException(nameof(DiscordSocketClient));
             this.settings = lavaSettings;
             this.endpointProvider = lavalinkEndpointProvider;
             this.restNode = lavalinkRest;

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using OuterHeavenLight.Entities.Request;
+using System.Text.Json.Serialization;
 
 namespace OuterHeavenLight.Entities
 {
@@ -14,6 +15,6 @@ namespace OuterHeavenLight.Entities
         public Plugininfo pluginInfo { get; set; }
 
         [JsonPropertyName("userData")]
-        public object UserData { get; set; }
+        public Userdata? UserData { get; set; } 
     }
 }

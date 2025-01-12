@@ -15,6 +15,9 @@ namespace OuterHeavenLight.Entities.Response.Websocket
         public string GuildId { get; set; }
 
         [JsonPropertyName("track")]
-        public LavaTrack Track { get; set; } 
+        public LavaTrack Track { get; set; }
+
+        [JsonIgnore]
+        public ulong? IssuedCommandChannelId { get; set; }
     } 
 }

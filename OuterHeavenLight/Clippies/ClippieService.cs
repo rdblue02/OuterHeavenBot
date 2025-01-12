@@ -10,18 +10,18 @@ namespace OuterHeavenLight.Clippies
     {
         ILogger logger;
         ClippieDiscordClient discordClient;
-        ClippieCommandHandlerBase clippieCommandHandler;
+        ClippieCommandHandler clippieCommandHandler;
         ulong? currentChannelId = 0;
         ulong botUserId;
 
         public ClippliePlayerState clippliePlayerState { get; set; } = ClippliePlayerState.Available;
 
         public ClippieService(ILogger<ClippieService> logger,
-                              ClippieDiscordClient clippieDiscordClient,
-                              ClippieCommandHandlerBase clippieCommandHandler)
+                              DiscordClientProvider provider,
+                              ClippieCommandHandler clippieCommandHandler)
         {
             this.logger = logger;
-            this.discordClient = clippieDiscordClient;
+            this.discordClient = provider.GetClipClient() ?? throw new ArgumentNullException(nameof(ClippieDiscordClient));
             this.clippieCommandHandler = clippieCommandHandler;
             this.clippliePlayerState = ClippliePlayerState.Connecting;
 

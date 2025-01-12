@@ -22,18 +22,19 @@ namespace OuterHeavenLight
         Lava lava;
         ConcurrentQueue<LavaTrack> queuedTracks;   
         DiscordSocketClient client;
-        CommandHandler commandHandler;
-        TimeSpan waitUntilDisconnect = TimeSpan.FromSeconds(10); 
-        bool isPlaying = false;
+        MusicCommandHandler commandHandler;
+        TimeSpan waitUntilDisconnect = TimeSpan.FromSeconds(30); 
+        bool isPlaying = false; 
+
         public MusicService(ILogger<MusicService> logger, 
                             Lava lava, 
-                            DiscordSocketClient client,
-                            CommandHandler commandHandler) 
+                            DiscordClientProvider clientProvider,
+                            MusicCommandHandler commandHandler) 
         {
             this.logger = logger;
             this.lava = lava;  
             this.queuedTracks = new ConcurrentQueue<LavaTrack>();
-            this.client = client;
+            this.client = clientProvider.GetMusicClient() ?? throw new ArgumentNullException(nameof(DiscordSocketClient));  
             this.commandHandler = commandHandler;
             this.client.MessageReceived += async (arg) => { await commandHandler.HandleMessage(client, arg); };
             this.lava.OnLavaTrackEndEvent += Lava_OnLavaTrackEndEvent;
@@ -43,7 +44,7 @@ namespace OuterHeavenLight
         public async Task Initialize()
         {
             logger.LogInformation("Initializing music service");
-            await commandHandler.Initialize(new List<Type>() { typeof(BotCommands) }); 
+            await commandHandler.Initialize(new List<Type>() { typeof(MusicCommands) }); 
         }
 
         public LavaTrackInfo? GetCurrentTrackInfo()
@@ -112,15 +113,16 @@ namespace OuterHeavenLight
          
         public async Task Query(SocketCommandContext context, string query)
         {
-            var commandUserVoice = context.User as IVoiceState;
-         
-            if (commandUserVoice?.VoiceChannel == null) 
+            var commandUserVoice = (context.User as IVoiceState)?.VoiceChannel ?? (System.Diagnostics.Debugger.IsAttached ? context.Guild.Channels.OfType<IVoiceChannel>()
+                                                                                                                                                  .FirstOrDefault(x => x.Name == "audiotest") : null);
+            
+            if (commandUserVoice == null) 
             {
                 logger.LogError("Must be in a channel for this command");
                 return;
             }
 
-            var searchType = LavalinkSearchType.Raw; // query.StartsWith("https") ? LavalinkSearchType.Raw : LavalinkSearchType.ytsearch;
+            var searchType = query.ToLower().Contains("https") ? LavalinkSearchType.Raw : LavalinkSearchType.ytsearch;
         
             var result = await lava.SearchForTracks(query, searchType);
 
@@ -139,18 +141,21 @@ namespace OuterHeavenLight
 
             var botChannel = context.Guild.CurrentUser.VoiceChannel;
              
-            if (botChannel == null || botChannel.Id != commandUserVoice.VoiceChannel.Id)
+            if (botChannel == null || botChannel.Id != commandUserVoice.Id)
             {
-               await commandUserVoice.VoiceChannel.ConnectAsync(true, true, true, true);
+               await commandUserVoice.ConnectAsync(true, true, true, true);
             }
 
+            var userData = new Userdata() { Data = context.Channel.Id.ToString() };
             var firstTrack = result.LoadedTracks.First();
-            logger.LogInformation($"Found track {firstTrack.info.title} from source {firstTrack.info.uri}");
+                firstTrack.UserData = userData;
+
+            logger.LogInformation($"Found track {firstTrack.info.title} from source {firstTrack.info.uri}");  
 
             if (this.queuedTracks.IsEmpty && !isPlaying)
             {
                 logger.LogInformation($"Queue is empty. Processing {result.LoadType}.");
-                await lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = firstTrack.encoded});
+                await lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = firstTrack.encoded, userData = userData });
             }
             else
             {
@@ -162,6 +167,7 @@ namespace OuterHeavenLight
             {
                 foreach (var item in result.LoadedTracks.Skip(1))
                 {
+                    item.UserData = new Userdata() { Data = context.Channel.Id.ToString() };
                     this.queuedTracks.Enqueue(item);
                 }
             } 
@@ -169,7 +175,15 @@ namespace OuterHeavenLight
        
         private Task Lava_OnLavaTrackStartEvent(TrackStartWebsocketEvent arg)
         { 
-            logger.LogInformation($"Now playing {arg.Track.info.title}"); 
+            logger.LogInformation($"Now playing {arg.Track.info.title}. Command channel {arg.IssuedCommandChannelId}");
+
+            if (arg?.Track?.UserData?.Data != null && 
+                ulong.TryParse(arg.Track.UserData.Data.ToString(), out var channelId) &&
+                this.client.GetChannel(channelId) is ITextChannel channel) 
+            {
+                channel.SendMessageAsync($"Now playing {arg.Track?.info?.title}"); 
+            }
+
             isPlaying = true;
             return Task.CompletedTask;
         }
@@ -177,10 +191,10 @@ namespace OuterHeavenLight
         private async Task Lava_OnLavaTrackEndEvent(TrackEndWebsocketEvent arg)
         {
             logger.LogInformation($"Track {arg.Track?.info?.title} has ended. Reason [{arg.Reason}]");
-
+             
             if (arg.Reason == LavalinkTrackEndReason.replaced ||
-               arg.Reason == LavalinkTrackEndReason.invalid ||
-               arg.Reason == LavalinkTrackEndReason.cleanup)
+                arg.Reason == LavalinkTrackEndReason.invalid ||
+                arg.Reason == LavalinkTrackEndReason.cleanup)
             {
                 return;
             }

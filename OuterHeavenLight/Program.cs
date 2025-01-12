@@ -10,8 +10,14 @@ namespace OuterHeavenLight
     {
         public static void Main(string[] args)
         {
+            var result = DisableConsoleQuickEdit.Disable();
+            if (!result)
+            {
+                Console.WriteLine("Error disabling console quick edit");
+            }
+
             var builder = Host.CreateApplicationBuilder(args);
-           
+
             AddSettings(builder.Services);
             var config = new DiscordSocketConfig()
             {
@@ -21,22 +27,22 @@ namespace OuterHeavenLight
                 LogGatewayIntentWarnings = false
             };
 
+            builder.Services.AddSingleton<DiscordClientProvider>();
             builder.Services.AddLogging();
             builder.Services.AddSingleton(config);
-            builder.Services.AddSingleton<DiscordSocketClient>();
-            builder.Services.AddSingleton<CommandHandler>();
+            builder.Services.AddSingleton<MusicCommandHandler>();
             builder.Services.AddSingleton<CommandService>();
-            builder.Services.AddSingleton<BotCommands>();
+            builder.Services.AddSingleton<MusicCommands>();
             builder.Services.AddSingleton<MusicService>();
             builder.Services.AddSingleton<LavalinkEndpointProvider>();
-            builder.Services.AddSingleton<LavalinkRestNode>(); 
+            builder.Services.AddSingleton<LavalinkRestNode>();
             builder.Services.AddSingleton<Lava>();
-          //  builder.Services.AddHostedService<MusicWorker>();
+
+            builder.Services.AddHostedService<MusicWorker>();
             //Clippie types
             builder.Services.AddSingleton<ClippieCommands>();
-            builder.Services.AddSingleton<ClippieDiscordClient>();
             builder.Services.AddSingleton<ClippieService>();
-            builder.Services.AddSingleton<ClippieCommandHandlerBase>();
+            builder.Services.AddSingleton<ClippieCommandHandler>();
             builder.Services.AddHostedService<ClippieWorker>();
             var host = builder.Build();
             host.Run();

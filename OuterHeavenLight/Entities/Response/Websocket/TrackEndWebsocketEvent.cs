@@ -11,5 +11,6 @@ namespace OuterHeavenLight.Entities.Response.Websocket
 
         [JsonPropertyName("reason")]
         public string ReasonRaw { get; set; }
+ 
     }
 }

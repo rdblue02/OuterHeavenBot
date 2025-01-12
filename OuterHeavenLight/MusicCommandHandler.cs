@@ -3,16 +3,17 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
+using OuterHeavenLight.Constants;
 
 namespace OuterHeaven.LavalinkLight
 { 
-    public class CommandHandler
+    public class MusicCommandHandler
     {
-        ILogger<CommandHandler> logger;
+        ILogger<MusicCommandHandler> logger;
         CommandService commandService;
         IServiceProvider serviceProvider;
          
-        public CommandHandler(ILogger<CommandHandler> logger,
+        public MusicCommandHandler(ILogger<MusicCommandHandler> logger,
                               CommandService commandService,
                               IServiceProvider serviceProvider)
         {
@@ -44,7 +45,7 @@ namespace OuterHeaven.LavalinkLight
         public async Task HandleMessage(DiscordSocketClient client, SocketMessage arg)
         {
             try
-            { 
+            {
                 var userMessage = arg as SocketUserMessage;
                 if (userMessage == null || arg.Author.IsBot) return;
 
@@ -52,13 +53,14 @@ namespace OuterHeaven.LavalinkLight
                 var isBotCommand = userMessage.HasCharPrefix('~', ref argPos) ||
                                    userMessage.HasMentionPrefix(client.CurrentUser, ref argPos);
 
-                if (isBotCommand && argPos < 1) 
+                if (isBotCommand && argPos < 1)
                 {
                     logger.LogError($"Invalid message {arg?.Content} sent by {arg?.Author?.Username}");
                     return;
                 } 
+
+                var context = new SocketCommandContext(client, userMessage); 
  
-                var context = new SocketCommandContext(client, userMessage);
                 logger.LogInformation($"{client?.GetType()?.Name} Bot command received by user {arg?.Author?.Username} in channel {arg?.Channel?.Name}. Processing message \n\"{arg?.Content}\"");
                 await commandService.ExecuteAsync(
                 context: context,

@@ -24,7 +24,7 @@ namespace OuterHeavenLight
             }
 
             var message = "Queue\n";
-                message += $"| {Clean("#", 5)} | {Clean("Title", 20)} | {Clean("Author", 20)} | {Clean("Source", 20)} |";
+                message += $"| {Clean("#", 5)} | {Clean("Title", 20)} | {Clean("Author", 20)} | {Clean("Source", 20)} |\n";
            
             for (int i = 0; i < tracks.Count; i++)
             {

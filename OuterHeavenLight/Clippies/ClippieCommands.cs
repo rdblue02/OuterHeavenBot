@@ -1,8 +1,8 @@
 ﻿using Discord;
 using Discord.Audio;
-using Discord.Commands;
-using Discord.Interactions;
-using Discord.WebSocket; 
+using Discord.Commands; 
+using Discord.WebSocket;
+using OuterHeavenLight.Constants;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 
 namespace OuterHeavenLight.Clippies
 {
+    [Name(CommandGroupName.Clippies)]
     public class ClippieCommands : ModuleBase<SocketCommandContext>
     {
         ILogger logger;
