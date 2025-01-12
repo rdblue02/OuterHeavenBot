@@ -113,12 +113,13 @@ namespace OuterHeavenLight
          
         public async Task Query(SocketCommandContext context, string query)
         {
+           
             var commandUserVoice = (context.User as IVoiceState)?.VoiceChannel ?? (System.Diagnostics.Debugger.IsAttached ? context.Guild.Channels.OfType<IVoiceChannel>()
-                                                                                                                                                  .FirstOrDefault(x => x.Name == "audiotest") : null);
-            
+                                                                                                                                                  .FirstOrDefault(x => x.Name == "audiotest") : null);            
             if (commandUserVoice == null) 
             {
                 logger.LogError("Must be in a channel for this command");
+                await context.Channel.SendMessageAsync("Must be in a channel for this command");
                 return;
             }
 
@@ -129,6 +130,7 @@ namespace OuterHeavenLight
             if (result.LoadType == LavalinkLoadType.error)
             {
                 logger.LogInformation($"Error playing {query}");
+                await context.Channel.SendMessageAsync($"Error playing {query}");
                 return;
             }
 
@@ -136,6 +138,8 @@ namespace OuterHeavenLight
                result.LoadType == LavalinkLoadType.empty)
             {
                 logger.LogInformation($"No matches found for {query}");
+
+                await context.Channel.SendMessageAsync($"No matches found for {query}");
                 return;
             }
 
@@ -160,11 +164,13 @@ namespace OuterHeavenLight
             else
             {
                 logger.LogInformation($"Bot is active. Adding {result.LoadType} to music queue.");
-                this.queuedTracks.Enqueue(firstTrack); 
+                await context.Channel.SendMessageAsync($"Bot is active. Adding {result.LoadType} to music queue.");
+                this.queuedTracks.Enqueue(firstTrack);
             }
              
             if (result.LoadType == LavalinkLoadType.playlist)
             {
+                await context.Channel.SendMessageAsync($"Bot is active. Queuing playlist {result.PlaylistInfo?.Name}");
                 foreach (var item in result.LoadedTracks.Skip(1))
                 {
                     item.UserData = new Userdata() { Data = context.Channel.Id.ToString() };
@@ -173,29 +179,29 @@ namespace OuterHeavenLight
             } 
         }
        
-        private Task Lava_OnLavaTrackStartEvent(TrackStartWebsocketEvent arg)
+        private async Task Lava_OnLavaTrackStartEvent(TrackStartWebsocketEvent arg)
         { 
             logger.LogInformation($"Now playing {arg.Track.info.title}. Command channel {arg.IssuedCommandChannelId}");
-
-            if (arg?.Track?.UserData?.Data != null && 
-                ulong.TryParse(arg.Track.UserData.Data.ToString(), out var channelId) &&
-                this.client.GetChannel(channelId) is ITextChannel channel) 
-            {
-                channel.SendMessageAsync($"Now playing {arg.Track?.info?.title}"); 
-            }
-
             isPlaying = true;
-            return Task.CompletedTask;
+           
+            await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Now playing track - {arg?.Track?.info?.title ?? "error"}"); 
         }
 
         private async Task Lava_OnLavaTrackEndEvent(TrackEndWebsocketEvent arg)
         {
             logger.LogInformation($"Track {arg.Track?.info?.title} has ended. Reason [{arg.Reason}]");
              
-            if (arg.Reason == LavalinkTrackEndReason.replaced ||
-                arg.Reason == LavalinkTrackEndReason.invalid ||
+            if (arg.Reason == LavalinkTrackEndReason.replaced)
+            {
+                //handled in skip command logic
+                return;
+            } 
+
+            if (arg.Reason == LavalinkTrackEndReason.invalid ||
                 arg.Reason == LavalinkTrackEndReason.cleanup)
             {
+                await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Error playing track title {arg?.Track?.info?.title ?? "error"}");
+
                 return;
             }
 
@@ -220,10 +226,21 @@ namespace OuterHeavenLight
                         await lava.DisconnectFromChannel();
                     } 
                 });
+
                 return;
             }
 
-            await this.lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = next.encoded });
-        } 
+            await this.lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = next.encoded, userData = next.UserData});
+        }
+
+        Task SendMessageToExecutingCommandChannel(Userdata? userdata, string message)
+        {
+            var channel = ulong.TryParse(userdata?.Data?.ToString(), out var channelId) ? this.client.GetChannel(channelId) as ITextChannel : null;
+
+            if (channel == null)
+                return Task.CompletedTask;
+
+            return channel.SendMessageAsync(message);
+        }
     }
 }
