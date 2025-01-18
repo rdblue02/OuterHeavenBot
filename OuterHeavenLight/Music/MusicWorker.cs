@@ -1,6 +1,6 @@
 using OuterHeaven.LavalinkLight;
 
-namespace OuterHeavenLight
+namespace OuterHeavenLight.Music
 {
     public class MusicWorker : BackgroundService
     {
@@ -19,7 +19,7 @@ namespace OuterHeavenLight
         {
             await musicService.Initialize();
             await lava.Initialize();
-             
+
             await Task.Delay(-1, stoppingToken);
         }
     }

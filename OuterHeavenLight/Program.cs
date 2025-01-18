@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Discord;
 using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Clippies;
+using OuterHeavenLight.Music;
 
 namespace OuterHeavenLight
 {
@@ -19,34 +20,32 @@ namespace OuterHeavenLight
             var builder = Host.CreateApplicationBuilder(args);
 
             AddSettings(builder.Services);
-            var config = new DiscordSocketConfig()
-            {
-                LogLevel = LogSeverity.Verbose,
-                GatewayIntents = GatewayIntents.All,
-                MessageCacheSize = 100,
-                LogGatewayIntentWarnings = false
-            };
-
-            builder.Services.AddSingleton<DiscordClientProvider>();
+           
             builder.Services.AddLogging();
-            builder.Services.AddSingleton(config);
-            builder.Services.AddSingleton<MusicCommandHandler>();
             builder.Services.AddSingleton<CommandService>();
-            builder.Services.AddSingleton<MusicCommands>();
-            builder.Services.AddSingleton<MusicService>();
+
+            //lava
             builder.Services.AddSingleton<LavalinkEndpointProvider>();
             builder.Services.AddSingleton<LavalinkRestNode>();
             builder.Services.AddSingleton<Lava>();
 
+            builder.Services.AddSingleton<MusicCommands>();
+            builder.Services.AddSingleton<MusicCommandHandler>();             
+            builder.Services.AddSingleton<MusicDiscordClient>();
+            builder.Services.AddSingleton<MusicService>(); 
             builder.Services.AddHostedService<MusicWorker>();
-            //Clippie types
-            builder.Services.AddSingleton<ClippieCommands>();
-            builder.Services.AddSingleton<ClippieService>();
+
+            //Clippie types 
+            builder.Services.AddSingleton<ClippieCommands>(); 
             builder.Services.AddSingleton<ClippieCommandHandler>();
+            builder.Services.AddSingleton<ClippieDiscordClient>();
+            builder.Services.AddSingleton<ClippieService>(); 
             builder.Services.AddHostedService<ClippieWorker>();
+            
             var host = builder.Build();
             host.Run();
         }
+
         public static IServiceCollection AddSettings(IServiceCollection services)
         {
             var configName = System.Diagnostics.Debugger.IsAttached ? "appsettings.Development.json" : "appsettings.json";

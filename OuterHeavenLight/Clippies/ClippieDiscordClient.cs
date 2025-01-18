@@ -14,13 +14,18 @@ namespace OuterHeavenLight.Clippies
     public class ClippieDiscordClient:DiscordSocketClient 
     {
         private readonly ILogger logger;
-        private readonly AppSettings botSettings;
+        private readonly AppSettings botSettings; 
         public ClippieDiscordClient(ILogger<ClippieDiscordClient> logger,
-                                    AppSettings botSettings,
-                                    DiscordSocketConfig config):base(config)
+                                    AppSettings botSettings ) :base (new DiscordSocketConfig()
+                                    {
+                                        LogLevel = LogSeverity.Verbose,
+                                        GatewayIntents = GatewayIntents.All,
+                                        MessageCacheSize = 100,
+                                        LogGatewayIntentWarnings = false
+                                    })
         {
             this.logger = logger;
-            this.botSettings = botSettings;
+            this.botSettings = botSettings; 
             this.Log += ClippieDiscordClient_Log; 
         }
 

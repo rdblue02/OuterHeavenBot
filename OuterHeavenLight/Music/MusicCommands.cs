@@ -2,7 +2,7 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using OuterHeavenLight;
+using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Constants;
 using System;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OuterHeaven.LavalinkLight
+namespace OuterHeavenLight.Music
 {
     [Name(CommandGroupName.Music)]
     public class MusicCommands : ModuleBase<SocketCommandContext>
@@ -18,7 +18,7 @@ namespace OuterHeaven.LavalinkLight
         ILogger<MusicCommands> logger;
         MusicService musicService;
         Lava lava;
-        public MusicCommands(ILogger<MusicCommands> logger, 
+        public MusicCommands(ILogger<MusicCommands> logger,
                              MusicService musicService,
                              Lava lava)
         {
@@ -32,15 +32,15 @@ namespace OuterHeaven.LavalinkLight
         public async Task Play([Remainder] string argument)
         {
             try
-            { 
-                await musicService.Query(this.Context, argument);
+            {
+                await musicService.Query(Context, argument);
             }
             catch (Exception e)
             {
                 logger.LogError($"Error: {e}");
                 await ReplyAsync(e.Message);
             }
-        } 
+        }
 
         [Command("skip", RunMode = RunMode.Async)]
         [Alias("sk")]

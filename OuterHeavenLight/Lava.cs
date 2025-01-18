@@ -16,6 +16,7 @@ using OuterHeavenLight.Entities.Response.Rest;
 using Microsoft.VisualBasic;
 using System.Reactive;
 using OuterHeavenLight;
+using OuterHeavenLight.Music;
 
 namespace OuterHeaven.LavalinkLight
 {
@@ -43,16 +44,16 @@ namespace OuterHeaven.LavalinkLight
         public bool IsConnected => voiceState.VoiceLoaded();
         private bool listeningForUpdates = false;
         DateTime timeOfLastActivity = DateTime.UtcNow;
-        TimeSpan timeout = TimeSpan.FromSeconds(10);
+        TimeSpan timeout = TimeSpan.FromSeconds(30);
 
         public Lava(ILogger<Lava> logger,
-                    DiscordClientProvider clientProvider,
+                    MusicDiscordClient client,
                     AppSettings lavaSettings, 
                     LavalinkEndpointProvider lavalinkEndpointProvider,
                     LavalinkRestNode lavalinkRest )
         {
-            this.logger = logger; 
-            this.discordClient = clientProvider.GetMusicClient() ?? throw new ArgumentNullException(nameof(DiscordSocketClient));
+            this.logger = logger;
+            this.discordClient = client;
             this.settings = lavaSettings;
             this.endpointProvider = lavalinkEndpointProvider;
             this.restNode = lavalinkRest;
@@ -176,6 +177,7 @@ namespace OuterHeaven.LavalinkLight
             if(this.voiceState.DiscordVoiceLoaded() && ulong.TryParse(voiceState.ChannelId,out var channelId))
             {
                 var channel = this.discordClient.GetChannel(channelId) as IVoiceChannel;
+             
                 if (channel != null) 
                 {
                     logger.LogInformation($"Disconnecting from channel {channel.Name}");

@@ -13,8 +13,7 @@ namespace OuterHeavenLight.Clippies
     public class ClippieCommandHandler 
     {
         public bool IsInitialized { get; private set; } = false;
-        protected readonly CommandService commandService;
-     
+        protected readonly CommandService commandService;     
         private readonly IServiceProvider serviceProvider;
         private readonly ILogger logger;
         private readonly List<CommandInfo> commands;
@@ -62,8 +61,8 @@ namespace OuterHeavenLight.Clippies
                 }
 
                 var userMessage = message as SocketUserMessage;
-                if (userMessage == null || message.Author.IsBot) return;
-
+                if (userMessage == null || message.Author.IsBot) return; 
+ 
                 var argPos = GetCommandArgPos(discordSocketClient.CurrentUser, message);
 
                 if (argPos < 1) 
@@ -71,8 +70,15 @@ namespace OuterHeavenLight.Clippies
                     logger.LogError($"Invalid message {message?.Content} sent by {message?.Author?.Username}");
                     return;
                 }
- 
+                 
+                var commandInfo = GetCommandInfoFromMessage(message);
+                if (commandInfo == null) 
+                { 
+                    return;
+                }
+
                 var context = new SocketCommandContext(discordSocketClient, message);
+                              
                 logger.LogInformation($"{discordSocketClient?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");
                 await commandService.ExecuteAsync(
                 context: context,
@@ -84,16 +90,17 @@ namespace OuterHeavenLight.Clippies
                 logger.LogError($"Unable to proccess command message {message?.ToString()}\n {e}");
             }
         }
+
         public CommandInfo? GetCommandInfoFromMessage(SocketUserMessage message)
-        {           
+        {
             if (string.IsNullOrWhiteSpace(message?.CleanContent)) return null;
             var endOfCommand = message.CleanContent.IndexOf(' ');
 
-            var content = message.CleanContent.Substring(0,endOfCommand>0? endOfCommand: message.CleanContent.Length).Replace(Prefix, '\0').Trim();
+            var content = message.CleanContent.Substring(0, endOfCommand > 0 ? endOfCommand : message.CleanContent.Length).Replace(Prefix, '\0').Trim();
             var info = commands.FirstOrDefault(x => x.Name.ToLower() == content.ToLower() || x.Aliases.Any(x => x.ToLower() == content.ToLower()));
             return info;
         }
- 
+
         private int GetCommandArgPos(SocketSelfUser selfUser, SocketUserMessage userMessage)
         {
             var argPos = 0;
@@ -103,6 +110,7 @@ namespace OuterHeavenLight.Clippies
 
             return argPos;
         }
+
         private Task CommandService_Log(LogMessage arg)
         {
             if (arg.Severity == LogSeverity.Error)
