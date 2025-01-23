@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OuterHeaven.LavalinkLight
+namespace OuterHeavenLight.LavaConnection
 {
     public class LavalinkEndpointProvider
     {

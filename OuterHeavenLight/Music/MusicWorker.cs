@@ -1,4 +1,4 @@
-using OuterHeaven.LavalinkLight;
+using OuterHeavenLight.LavaConnection;
 
 namespace OuterHeavenLight.Music
 {

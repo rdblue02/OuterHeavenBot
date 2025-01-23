@@ -1,13 +1,13 @@
-﻿namespace OuterHeaven.LavalinkLight
+﻿namespace OuterHeavenLight.LavaConnection
 {
     public class LavalinkEndpoint
-    { 
-        public string Host { get; } 
-        public int Port { get; } 
-        public string Route { get; } 
-        public bool IsSecure { get; } 
+    {
+        public string Host { get; }
+        public int Port { get; }
+        public string Route { get; }
+        public bool IsSecure { get; }
         public string Password { get; }
-         
+
         public LavalinkEndpoint(string host, int port, string password, string route = "/", bool isSecure = false)
         {
             if (string.IsNullOrWhiteSpace(host)) throw new ArgumentNullException(nameof(host));
@@ -23,7 +23,7 @@
         }
 
         public Uri ToUri() => new Uri($"http{(IsSecure ? "S" : string.Empty)}://{Host}:{Port}{Route}");
-        public override string ToString() => $"http{(IsSecure ? "S" : string.Empty)}://{Host}:{Port}{Route}"; 
+        public override string ToString() => $"http{(IsSecure ? "S" : string.Empty)}://{Host}:{Port}{Route}";
         public string ToWebSocketString() => $"ws{(IsSecure ? "s" : string.Empty)}://{Host}:{Port}{Route}";
     }
 }

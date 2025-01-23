@@ -17,7 +17,7 @@ using OuterHeavenLight.Entities.Request;
 using OuterHeavenLight.Entities.Response.Rest;
 
 
-namespace OuterHeaven.LavalinkLight
+namespace OuterHeavenLight.LavaConnection
 {
     public class LavalinkRestNode
     {
@@ -54,10 +54,10 @@ namespace OuterHeaven.LavalinkLight
 
             if (!res.IsSuccessStatusCode)
             {
-                logger.LogError($"Failed to resolve guild player: {res.StatusCode}");        
+                logger.LogError($"Failed to resolve guild player: {res.StatusCode}");
                 return null;
             }
-             
+
             var json = await res.Content.ReadAsStringAsync();
 
             if (string.IsNullOrWhiteSpace(json))
@@ -67,7 +67,7 @@ namespace OuterHeaven.LavalinkLight
 
             return JsonSerializer.Deserialize<LavaPlayer>(json);
 
-        } 
+        }
 
         public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
         {
@@ -95,7 +95,7 @@ namespace OuterHeaven.LavalinkLight
             {
                 logger.LogError($"Failed to resolve tracks: {res.StatusCode}");
 
-                _ = Enum.TryParse<HttpStatusCode>(res.StatusCode.ToString(), out HttpStatusCode code);
+                _ = Enum.TryParse(res.StatusCode.ToString(), out HttpStatusCode code);
                 result.TrackException = new LavaTrackException()
                 {
                     Cause = $"Received Error http status code {res.StatusCode} ({code})",
@@ -106,7 +106,7 @@ namespace OuterHeaven.LavalinkLight
             }
 
             var json = JsonNode.Parse(jsonString);
-            if(json == null)
+            if (json == null)
             {
                 result.TrackException = new LavaTrackException()
                 {
@@ -116,9 +116,9 @@ namespace OuterHeaven.LavalinkLight
                 };
                 return result;
             }
-             
+
             var loadTypeString = json["loadType"]?.GetValue<string>();
-            var validLoadType = Enum.TryParse<LavalinkLoadType>(loadTypeString, out var loadType); 
+            var validLoadType = Enum.TryParse<LavalinkLoadType>(loadTypeString, out var loadType);
 
             if (!validLoadType)
             {
@@ -152,10 +152,10 @@ namespace OuterHeaven.LavalinkLight
             {
                 result.LoadedTracks = json.Deserialize<SearchLoaded>()?.Tracks ?? [];
             }
-           
+
             else if (result.LoadType == LavalinkLoadType.error)
             {
-                result.TrackException = json.Deserialize<LoadError>()?.Exception ?? new LavaTrackException() { Cause = " Unknown", Message = $"Received and error response when loading tracks but cannot parse it. Json content {json ?? "null"})"};
+                result.TrackException = json.Deserialize<LoadError>()?.Exception ?? new LavaTrackException() { Cause = " Unknown", Message = $"Received and error response when loading tracks but cannot parse it. Json content {json ?? "null"})" };
             }
             else
             {
@@ -165,7 +165,7 @@ namespace OuterHeaven.LavalinkLight
             return result;
         }
 
-  
+
         public async Task<LavaPlayer> UpdatePlayer(string guildId, string sessionId, PlayerUpdateRequest payload, bool noReplace = false)
         {
             var builder = new UriBuilder(new Uri(string.Format(LavalinkRestUrl.PLAYER, _httpClient.BaseAddress, sessionId, guildId)));
@@ -192,17 +192,17 @@ namespace OuterHeaven.LavalinkLight
             req.Content = content;
 
             using var res = await _httpClient.SendAsync(req);
-                      
-           var responseJson = await res.Content.ReadAsStringAsync();
+
+            var responseJson = await res.Content.ReadAsStringAsync();
 
             logger.LogInformation($"received the following json as a response {responseJson}");
-            
+
             if (string.IsNullOrWhiteSpace(responseJson) || !res.IsSuccessStatusCode)
             {
                 throw new Exception("Failed to update player: No response");
             }
 
-             return JsonSerializer.Deserialize<LavaPlayer>(responseJson) ?? throw new Exception($"Cannot deserialize player {responseJson}");
+            return JsonSerializer.Deserialize<LavaPlayer>(responseJson) ?? throw new Exception($"Cannot deserialize player {responseJson}");
         }
 
         internal async Task DestroyPlayer(string guildId, string sessionId)

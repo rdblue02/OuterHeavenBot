@@ -54,12 +54,7 @@ namespace OuterHeavenLight.Clippies
         public async Task HandleCommandAsync(DiscordSocketClient discordSocketClient, SocketUserMessage message)
         {
             try
-            {
-                if (!IsInitialized)
-                {
-                    throw new InvalidOperationException("Cannot accept command before being initialized");
-                }
-
+            {  
                 var userMessage = message as SocketUserMessage;
                 if (userMessage == null || message.Author.IsBot) return; 
  

@@ -5,7 +5,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OuterHeaven.LavalinkLight
+namespace OuterHeavenLight.LavaConnection
 {
     public enum LavalinkSearchType
     {
@@ -44,5 +44,5 @@ namespace OuterHeaven.LavalinkLight
         Invalid
     }
 
- 
+
 }

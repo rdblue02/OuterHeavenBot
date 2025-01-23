@@ -1,13 +1,13 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using Microsoft.Extensions.Logging; 
+using Microsoft.Extensions.Logging;
 using System;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Websocket.Client; 
-using Newtonsoft.Json.Linq; 
+using Websocket.Client;
+using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
 using OuterHeavenLight.Entities;
 using OuterHeavenLight.Entities.Response.Websocket;
@@ -17,8 +17,9 @@ using Microsoft.VisualBasic;
 using System.Reactive;
 using OuterHeavenLight;
 using OuterHeavenLight.Music;
+using OuterHeaven.LavalinkLight;
 
-namespace OuterHeaven.LavalinkLight
+namespace OuterHeavenLight.LavaConnection
 {
     public class Lava : IDisposable
     {
@@ -27,19 +28,19 @@ namespace OuterHeaven.LavalinkLight
         public event Func<TrackExceptionWebsocketEvent, Task>? OnLavaTrackExceptionEvent;
         public event Func<TrackStuckWebsocketEvent, Task>? OnLavaTrackStuckEvent;
         public event Func<ClosedWebsocketEvent, Task>? OnLavaConnectionClosed;
-        public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate; 
+        public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate;
 
         private WebsocketClient? websocket;
-        private ILogger<Lava> logger; 
-        private LavaStatsWebsocketMessage stats = new LavaStatsWebsocketMessage(); 
+        private ILogger<Lava> logger;
+        private LavaStatsWebsocketMessage stats = new LavaStatsWebsocketMessage();
         private DiscordSocketClient discordClient;
         private AppSettings settings;
         private LavalinkEndpointProvider endpointProvider;
         private LavalinkRestNode restNode;
-        private ConcurrentQueue<Func<Task>> pendingUpdates = new ConcurrentQueue<Func<Task>>(); 
-        private VoiceState voiceState = new VoiceState(); 
+        private ConcurrentQueue<Func<Task>> pendingUpdates = new ConcurrentQueue<Func<Task>>();
+        private VoiceState voiceState = new VoiceState();
         private LavaPlayer? player;
-        public bool IsPlaying => player?.track != null && !player.paused && this.IsConnected;
+        public bool IsPlaying => player?.track != null && !player.paused && IsConnected;
         public LavaTrack? ActiveTrack => player?.track;
         public bool IsConnected => voiceState.VoiceLoaded();
         private bool listeningForUpdates = false;
@@ -48,18 +49,18 @@ namespace OuterHeaven.LavalinkLight
 
         public Lava(ILogger<Lava> logger,
                     MusicDiscordClient client,
-                    AppSettings lavaSettings, 
+                    AppSettings lavaSettings,
                     LavalinkEndpointProvider lavalinkEndpointProvider,
-                    LavalinkRestNode lavalinkRest )
+                    LavalinkRestNode lavalinkRest)
         {
             this.logger = logger;
-            this.discordClient = client;
-            this.settings = lavaSettings;
-            this.endpointProvider = lavalinkEndpointProvider;
-            this.restNode = lavalinkRest;
+            discordClient = client;
+            settings = lavaSettings;
+            endpointProvider = lavalinkEndpointProvider;
+            restNode = lavalinkRest;
             discordClient.VoiceServerUpdated += DiscordClient_VoiceServerUpdated;
             discordClient.UserVoiceStateUpdated += DiscordClient_UserVoiceStateUpdated;
-            this.discordClient.Ready += async () =>
+            discordClient.Ready += async () =>
             {
                 logger.LogInformation("Discord client ready.");
                 if (websocket?.IsRunning ?? false)
@@ -68,13 +69,13 @@ namespace OuterHeaven.LavalinkLight
                 await StartWebsocket();
             };
 
-            this.OnPlayerUpdate += (update) =>
+            OnPlayerUpdate += (update) =>
             {
                 if (update.state.position > 0 && update.state.connected)
                 {
                     //logger.LogInformation($"Updating last time of activity {timeOfLastActivity} to {DateTime.UtcNow}");
-                    timeOfLastActivity = DateTime.UtcNow; 
-                } 
+                    timeOfLastActivity = DateTime.UtcNow;
+                }
 
                 return Task.CompletedTask;
             };
@@ -83,45 +84,45 @@ namespace OuterHeaven.LavalinkLight
         public async Task Initialize()
         {
             logger.LogInformation("Initializing lavalink");
-            this.pendingUpdates.Clear();
-            this.voiceState = new VoiceState(); 
+            pendingUpdates.Clear();
+            voiceState = new VoiceState();
 
             var startTasks = new List<Task>()
-            { 
+            {
                discordClient.LoginAsync(TokenType.Bot, settings.OuterHeavenBotSettings.DiscordToken),
                discordClient.SetGameAsync("|~h for more info", null, ActivityType.Playing),
                discordClient.StartAsync()
-            }; 
-          
-            await Task.WhenAll(startTasks); 
+            };
+
+            await Task.WhenAll(startTasks);
         }
-           
+
         public async Task UpdatePlayer(UpdatePlayerTrack track)
         {
-            logger.LogInformation("Updating player with voice state\n" + voiceState.ToString()); 
-        
+            logger.LogInformation("Updating player with voice state\n" + voiceState.ToString());
+
             var playerUpdate = new PlayerUpdateRequest()
             {
                 voice = voiceState,
                 track = track
             };
 
-            await RunActionAsync(async() =>
+            await RunActionAsync(async () =>
             {
-                if(await CheckConnection(TimeSpan.FromMilliseconds(200)))
-                if (!IsConnected)
-                {
-                    await Task.Delay(300);
+                if (await CheckConnection(TimeSpan.FromMilliseconds(200)))
                     if (!IsConnected)
                     {
-                        logger.LogError("lava player must be connected to a voice channel");
-                        return;
+                        await Task.Delay(300);
+                        if (!IsConnected)
+                        {
+                            logger.LogError("lava player must be connected to a voice channel");
+                            return;
+                        }
                     }
-                } 
 
-                player = await this.restNode.UpdatePlayer(this.voiceState.GuildId, this.voiceState.LavaSessionId, playerUpdate);
-                logger.LogInformation($"Updated player - voice session {player?.voice.DiscordVoiceSessionId} host session {this.voiceState.LavaSessionId} | connected {player?.state.connected} | current track {player?.track?.info?.title}");
-            }); 
+                player = await restNode.UpdatePlayer(voiceState.GuildId, voiceState.LavaSessionId, playerUpdate);
+                logger.LogInformation($"Updated player - voice session {player?.voice.DiscordVoiceSessionId} host session {voiceState.LavaSessionId} | connected {player?.state.connected} | current track {player?.track?.info?.title}");
+            });
         }
 
         public async Task DestroyPlayer()
@@ -134,8 +135,8 @@ namespace OuterHeaven.LavalinkLight
             }
 
             logger.LogInformation($"Destroying player..\n {voiceState}");
-            await this.restNode.DestroyPlayer(this.voiceState.GuildId, this.voiceState.LavaSessionId);
-            this.player = null;
+            await restNode.DestroyPlayer(voiceState.GuildId, voiceState.LavaSessionId);
+            player = null;
         }
 
         public async Task StopPlayer()
@@ -151,22 +152,22 @@ namespace OuterHeaven.LavalinkLight
             {
                 voice = voiceState,
                 track = new UpdatePlayerTrack()
-                { 
-                     encoded = null
+                {
+                    encoded = null
                 }
             };
-           
-             logger.LogInformation($"Stopping player...\n {voiceState}");
-            this.player = await this.restNode.UpdatePlayer(this.voiceState.GuildId, this.voiceState.LavaSessionId,playerUpdate);
+
+            logger.LogInformation($"Stopping player...\n {voiceState}");
+            player = await restNode.UpdatePlayer(voiceState.GuildId, voiceState.LavaSessionId, playerUpdate);
         }
 
         public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
         {
-            var result = await restNode.SearchForTracks(queryRaw, searchType); 
-            
-            if(result.TrackException != null)
+            var result = await restNode.SearchForTracks(queryRaw, searchType);
+
+            if (result.TrackException != null)
             {
-                logger.LogError($"Error running query {queryRaw}\nError level: {result.TrackException.Severity}\nError Message: {result.TrackException.Message}\nCause: {result.TrackException.Cause}"); 
+                logger.LogError($"Error running query {queryRaw}\nError level: {result.TrackException.Severity}\nError Message: {result.TrackException.Message}\nCause: {result.TrackException.Cause}");
             }
 
             return result;
@@ -174,18 +175,18 @@ namespace OuterHeaven.LavalinkLight
 
         public async Task DisconnectFromChannel()
         {
-            if(this.voiceState.DiscordVoiceLoaded() && ulong.TryParse(voiceState.ChannelId,out var channelId))
+            if (voiceState.DiscordVoiceLoaded() && ulong.TryParse(voiceState.ChannelId, out var channelId))
             {
-                var channel = this.discordClient.GetChannel(channelId) as IVoiceChannel;
-             
-                if (channel != null) 
+                var channel = discordClient.GetChannel(channelId) as IVoiceChannel;
+
+                if (channel != null)
                 {
                     logger.LogInformation($"Disconnecting from channel {channel.Name}");
                     await channel.DisconnectAsync();
                 }
 
-                this.player = null;
-            }            
+                player = null;
+            }
         }
 
         private async Task StartWebsocket()
@@ -193,7 +194,7 @@ namespace OuterHeaven.LavalinkLight
             try
             {
                 logger.LogInformation("Attempting to connect to lavalink");
-                var wsEndpoint = this.endpointProvider.WebSocketEndpoint;
+                var wsEndpoint = endpointProvider.WebSocketEndpoint;
                 await RunActionAsync(async () =>
                    {
                        var factory = new Func<ClientWebSocket>(() =>
@@ -202,12 +203,12 @@ namespace OuterHeaven.LavalinkLight
                            client.Options.SetRequestHeader("Authorization", wsEndpoint.Password);
                            client.Options.SetRequestHeader("client-Name", "DHCPCD9/OuterHeaven");
 
-                           if (!string.IsNullOrWhiteSpace(this.voiceState.LavaSessionId))
+                           if (!string.IsNullOrWhiteSpace(voiceState.LavaSessionId))
                            {
-                               client.Options.SetRequestHeader("Resume-Key", this.voiceState.LavaSessionId);
+                               client.Options.SetRequestHeader("Resume-Key", voiceState.LavaSessionId);
                            }
 
-                           client.Options.SetRequestHeader("User-Id", this.discordClient.CurrentUser.Id.ToString());
+                           client.Options.SetRequestHeader("User-Id", discordClient.CurrentUser.Id.ToString());
                            return client;
                        });
 
@@ -255,19 +256,19 @@ namespace OuterHeaven.LavalinkLight
             {
                 case LavalinkOPCodes.Ready:
                     var ready = jsonNode.Deserialize<ReadyOPWebsocketMessage>() ?? throw new Exception("Error reading ready response from lavalink");
-                    this.voiceState.LavaSessionId = ready.sessionId;
+                    voiceState.LavaSessionId = ready.sessionId;
                     logger.LogInformation($"lava link ready fired with {ready.sessionId} resumed {ready.resumed}");
                     break;
                 case LavalinkOPCodes.Stats:
                     stats = jsonNode.Deserialize<LavaStatsWebsocketMessage>() ?? throw new Exception("Error reading ready response from lavalink");
                     break;
-                case LavalinkOPCodes.PlayerUpdate: 
-                    var update = jsonNode.Deserialize<PlayerUpdateWebsocketMessage>() ?? throw new Exception("Error reading ready response from lavalink");  
+                case LavalinkOPCodes.PlayerUpdate:
+                    var update = jsonNode.Deserialize<PlayerUpdateWebsocketMessage>() ?? throw new Exception("Error reading ready response from lavalink");
                     if (update.state.position > 0 && update.state.connected) timeOfLastActivity = DateTime.UtcNow;
-                    this.OnPlayerUpdate?.Invoke(update);
+                    OnPlayerUpdate?.Invoke(update);
                     break;
                 case LavalinkOPCodes.LavalinkEvent:
-                    HandleLavaEvent(jsonNode).GetAwaiter().GetResult();  
+                    HandleLavaEvent(jsonNode).GetAwaiter().GetResult();
                     break;
                 default:
                     logger.LogError($"Invalid websocket opCode [{opCode ?? "null"}]");
@@ -293,7 +294,7 @@ namespace OuterHeaven.LavalinkLight
                     break;
                 case LavalinkWebsocketEventType.TrackEndEvent:
                     var tEnd = jsonNode.Deserialize<TrackEndWebsocketEvent>() ?? throw new ArgumentNullException(nameof(TrackEndWebsocketEvent));
-                    if (tEnd != null && OnLavaTrackEndEvent!=null) await OnLavaTrackEndEvent.Invoke(tEnd);
+                    if (tEnd != null && OnLavaTrackEndEvent != null) await OnLavaTrackEndEvent.Invoke(tEnd);
                     break;
                 case LavalinkWebsocketEventType.TrackStuckEvent:
                     var tStuck = jsonNode.Deserialize<TrackStuckWebsocketEvent>() ?? throw new ArgumentNullException(nameof(TrackStuckWebsocketEvent));
@@ -309,21 +310,21 @@ namespace OuterHeaven.LavalinkLight
                     break;
             }
         }
-         
+
         private Task DiscordClient_UserVoiceStateUpdated(SocketUser user, SocketVoiceState previousState, SocketVoiceState currentState)
-        { 
+        {
             //Ignore updates from other users.
-            if (user.Id != this.discordClient.CurrentUser.Id)
+            if (user.Id != discordClient.CurrentUser.Id)
             {
                 return Task.CompletedTask;
             }
 
             logger.LogInformation($"Updating voice state for lava session {voiceState.LavaSessionId}.\n" +
-                                  $"Discord voice session id from {this.voiceState.DiscordVoiceSessionId} to {currentState.VoiceSessionId}\n" +
-                                  $"Voice channel id from {this.voiceState.ChannelId} to {currentState.VoiceChannel?.Id.ToString() ?? "null"}\n" +
-                                  $"Guild id from {this.voiceState.GuildId} to {currentState.VoiceChannel?.Guild?.Id.ToString() ?? "null"}");
+                                  $"Discord voice session id from {voiceState.DiscordVoiceSessionId} to {currentState.VoiceSessionId}\n" +
+                                  $"Voice channel id from {voiceState.ChannelId} to {currentState.VoiceChannel?.Id.ToString() ?? "null"}\n" +
+                                  $"Guild id from {voiceState.GuildId} to {currentState.VoiceChannel?.Guild?.Id.ToString() ?? "null"}");
 
-            this.voiceState.DiscordVoiceSessionId = currentState.VoiceSessionId;
+            voiceState.DiscordVoiceSessionId = currentState.VoiceSessionId;
             if (currentState.VoiceChannel != null)
             {
                 voiceState.ChannelId = currentState.VoiceChannel.Id.ToString();
@@ -333,7 +334,7 @@ namespace OuterHeaven.LavalinkLight
             {
                 voiceState.ChannelId = "";
                 voiceState.GuildId = "";
-                
+
             }
 
             return Task.CompletedTask;
@@ -342,11 +343,11 @@ namespace OuterHeaven.LavalinkLight
         private Task DiscordClient_VoiceServerUpdated(SocketVoiceServer server)
         {
             logger.LogInformation($"Updating voice server for lava session {voiceState.LavaSessionId}.\n" +
-                                   $"Server token from {this.voiceState.Token} to {server.Token}\n" +
-                                   $"Server endpoint from {this.voiceState.Endpoint} to {server.Endpoint}");
+                                   $"Server token from {voiceState.Token} to {server.Token}\n" +
+                                   $"Server endpoint from {voiceState.Endpoint} to {server.Endpoint}");
 
-            this.voiceState.Token = server.Token;
-            this.voiceState.Endpoint = server.Endpoint;
+            voiceState.Token = server.Token;
+            voiceState.Endpoint = server.Endpoint;
 
             return Task.CompletedTask;
         }
@@ -354,26 +355,26 @@ namespace OuterHeaven.LavalinkLight
         async Task<bool> CheckConnection(TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             var time = DateTime.UtcNow.Add(timeout);
-            while (!this.IsConnected && DateTime.UtcNow < time && !cancellationToken.IsCancellationRequested) 
+            while (!IsConnected && DateTime.UtcNow < time && !cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(50);
             }
 
-            return this.IsConnected;
+            return IsConnected;
         }
 
         private Task RunActionAsync(Func<Task> action, CancellationToken cancellationToken = default)
         {
             return Task.Run(async () =>
               {
-                 await action();
+                  await action();
               }, cancellationToken);
         }
 
         public void Dispose()
         {
-            this.listeningForUpdates = false;
-            this.websocket?.Dispose();
+            listeningForUpdates = false;
+            websocket?.Dispose();
         }
     }
 }

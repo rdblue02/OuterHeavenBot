@@ -2,8 +2,8 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Constants;
+using OuterHeavenLight.LavaConnection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
