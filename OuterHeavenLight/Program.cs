@@ -19,7 +19,7 @@ namespace OuterHeavenLight
                 if (!result)
                 {
                     Console.WriteLine("Error disabling console quick edit");
-                }
+                } 
 
                 var builder = Host.CreateApplicationBuilder(args);
 
@@ -53,7 +53,7 @@ namespace OuterHeavenLight
                 builder.Services.AddSingleton<ClippieDiscordClient>();
                 builder.Services.AddSingleton<ClippieService>();
                 builder.Services.AddHostedService<ClippieWorker>();
-
+                 
                 var host = builder.Build();
                 host.Run();
             }

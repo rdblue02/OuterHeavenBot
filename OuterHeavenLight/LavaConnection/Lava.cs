@@ -29,6 +29,9 @@ namespace OuterHeavenLight.LavaConnection
         public event Func<TrackStuckWebsocketEvent, Task>? OnLavaTrackStuckEvent;
         public event Func<ClosedWebsocketEvent, Task>? OnLavaConnectionClosed;
         public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate;
+        public bool IsPlaying => player?.track != null && !player.paused && IsConnected;
+        public LavaTrack? ActiveTrack => player?.track;
+        public bool IsConnected => voiceState.VoiceLoaded();
 
         private WebsocketClient? websocket;
         private ILogger<Lava> logger;
@@ -40,12 +43,13 @@ namespace OuterHeavenLight.LavaConnection
         private ConcurrentQueue<Func<Task>> pendingUpdates = new ConcurrentQueue<Func<Task>>();
         private VoiceState voiceState = new VoiceState();
         private LavaPlayer? player;
-        public bool IsPlaying => player?.track != null && !player.paused && IsConnected;
-        public LavaTrack? ActiveTrack => player?.track;
-        public bool IsConnected => voiceState.VoiceLoaded();
+        private LavaFileCache? fileCache;
+      
         private bool listeningForUpdates = false;
-        DateTime timeOfLastActivity = DateTime.UtcNow;
-        TimeSpan timeout = TimeSpan.FromSeconds(30);
+        private DateTime timeOfLastActivity = DateTime.UtcNow;
+        private TimeSpan idleDisconnectWait = TimeSpan.FromMinutes(2);
+        private TimeSpan timeout = TimeSpan.FromSeconds(30);
+        private bool isReconnected = false;
 
         public Lava(ILogger<Lava> logger,
                     MusicDiscordClient client,
@@ -58,6 +62,13 @@ namespace OuterHeavenLight.LavaConnection
             settings = lavaSettings;
             endpointProvider = lavalinkEndpointProvider;
             restNode = lavalinkRest;
+            this.fileCache = LavaFileCache.Read();
+
+            if(!string.IsNullOrWhiteSpace(fileCache?.LavalinkSessionId))
+            {
+                this.voiceState.LavaSessionId = fileCache.LavalinkSessionId;
+            }
+
             discordClient.VoiceServerUpdated += DiscordClient_VoiceServerUpdated;
             discordClient.UserVoiceStateUpdated += DiscordClient_UserVoiceStateUpdated;
             discordClient.Ready += async () =>
@@ -70,10 +81,9 @@ namespace OuterHeavenLight.LavaConnection
             };
 
             OnPlayerUpdate += (update) =>
-            {
+            { 
                 if (update.state.position > 0 && update.state.connected)
-                {
-                    //logger.LogInformation($"Updating last time of activity {timeOfLastActivity} to {DateTime.UtcNow}");
+                { 
                     timeOfLastActivity = DateTime.UtcNow;
                 }
 
@@ -95,10 +105,31 @@ namespace OuterHeavenLight.LavaConnection
             };
 
             await Task.WhenAll(startTasks);
+       
+            await Task.Run(async () =>
+            {
+                await CheckForIdleDisconnect(default);
+            });  
         }
 
+        async Task CheckForIdleDisconnect(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (this.IsConnected && 
+                    DateTime.UtcNow - timeOfLastActivity > idleDisconnectWait)
+                {
+                    logger.LogInformation($"Idle timer has been reached. Disconnecting from channel id [{voiceState.ChannelId}] in guid id [{voiceState.GuildId}]");
+                    await DisconnectFromChannel();
+                }
+
+                await Task.Delay(500);
+            }
+        }
+         
         public async Task UpdatePlayer(UpdatePlayerTrack track)
         {
+            this.timeOfLastActivity = DateTime.UtcNow;
             logger.LogInformation("Updating player with voice state\n" + voiceState.ToString());
 
             var playerUpdate = new PlayerUpdateRequest()
@@ -109,16 +140,13 @@ namespace OuterHeavenLight.LavaConnection
 
             await RunActionAsync(async () =>
             {
-                if (await CheckConnection(TimeSpan.FromMilliseconds(200)))
-                    if (!IsConnected)
-                    {
-                        await Task.Delay(300);
-                        if (!IsConnected)
-                        {
-                            logger.LogError("lava player must be connected to a voice channel");
-                            return;
-                        }
-                    }
+                var connected = await CheckConnection(TimeSpan.FromMilliseconds(200));
+
+                if (!connected)
+                {
+                    logger.LogError("lava player must be connected to a voice channel");
+                    return;
+                }
 
                 player = await restNode.UpdatePlayer(voiceState.GuildId, voiceState.LavaSessionId, playerUpdate);
                 logger.LogInformation($"Updated player - voice session {player?.voice.DiscordVoiceSessionId} host session {voiceState.LavaSessionId} | connected {player?.state.connected} | current track {player?.track?.info?.title}");
@@ -187,6 +215,10 @@ namespace OuterHeavenLight.LavaConnection
 
                 player = null;
             }
+            else
+            {
+                logger.LogError($"Unable to disconnect from channel. Current voice state {this.voiceState}");
+            }
         }
 
         private async Task StartWebsocket()
@@ -202,9 +234,10 @@ namespace OuterHeavenLight.LavaConnection
                            var client = new ClientWebSocket();
                            client.Options.SetRequestHeader("Authorization", wsEndpoint.Password);
                            client.Options.SetRequestHeader("client-Name", "DHCPCD9/OuterHeaven");
-
+                            
                            if (!string.IsNullOrWhiteSpace(voiceState.LavaSessionId))
                            {
+                               this.isReconnected = true;
                                client.Options.SetRequestHeader("Resume-Key", voiceState.LavaSessionId);
                            }
 
@@ -215,9 +248,18 @@ namespace OuterHeavenLight.LavaConnection
                        var websocket = new WebsocketClient(new Uri(wsEndpoint.ToWebSocketString()), factory);
                        websocket.ErrorReconnectTimeout = TimeSpan.FromSeconds(10);
                        websocket.ReconnectTimeout = null;
-                       websocket.ReconnectionHappened.Subscribe((connectionInfo) =>
+                       websocket.ReconnectionHappened.Subscribe(async (connectionInfo) =>
                        {
-                           logger.LogInformation($"Websocket reconnected. Lava session id {voiceState?.LavaSessionId}");
+                           if (isReconnected)
+                           {
+                               logger.LogInformation($"Websocket reconnected. Lava session id {voiceState?.LavaSessionId}");
+                               if(!string.IsNullOrWhiteSpace(this.voiceState?.LavaSessionId) && this.voiceState.GuildId != default)
+                               this.player = await restNode.GetPlayerOrDefaultAsync(this.voiceState.GuildId, this.voiceState.LavaSessionId);
+                           }
+                           else
+                           {
+                               logger.LogInformation($"Websocket connected. Lava session id {voiceState?.LavaSessionId}");
+                           } 
                        });
 
                        websocket.DisconnectionHappened.Subscribe((disconnectionInfo) =>
@@ -231,6 +273,7 @@ namespace OuterHeavenLight.LavaConnection
                        });
 
                        websocket.MessageReceived.Subscribe(ProcessWebsocketMessage);
+                      
                        await websocket.Start();
                    });
             }
@@ -319,6 +362,7 @@ namespace OuterHeavenLight.LavaConnection
                 return Task.CompletedTask;
             }
 
+            this.timeOfLastActivity = DateTime.UtcNow;
             logger.LogInformation($"Updating voice state for lava session {voiceState.LavaSessionId}.\n" +
                                   $"Discord voice session id from {voiceState.DiscordVoiceSessionId} to {currentState.VoiceSessionId}\n" +
                                   $"Voice channel id from {voiceState.ChannelId} to {currentState.VoiceChannel?.Id.ToString() ?? "null"}\n" +
@@ -333,33 +377,41 @@ namespace OuterHeavenLight.LavaConnection
             else
             {
                 voiceState.ChannelId = "";
-                voiceState.GuildId = "";
-
+                voiceState.GuildId = ""; 
             }
+            
+            fileCache.ChannelId = voiceState.ChannelId;
+            fileCache.GuildId = voiceState.GuildId;
+ 
+            fileCache.Save();
 
             return Task.CompletedTask;
         }
 
         private Task DiscordClient_VoiceServerUpdated(SocketVoiceServer server)
         {
+            this.timeOfLastActivity = DateTime.UtcNow;
             logger.LogInformation($"Updating voice server for lava session {voiceState.LavaSessionId}.\n" +
                                    $"Server token from {voiceState.Token} to {server.Token}\n" +
                                    $"Server endpoint from {voiceState.Endpoint} to {server.Endpoint}");
 
             voiceState.Token = server.Token;
             voiceState.Endpoint = server.Endpoint;
-
+                         this.timeOfLastActivity = DateTime.UtcNow;
             return Task.CompletedTask;
         }
 
         async Task<bool> CheckConnection(TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             var time = DateTime.UtcNow.Add(timeout);
-            while (!IsConnected && DateTime.UtcNow < time && !cancellationToken.IsCancellationRequested)
+            while (!IsConnected && 
+                   DateTime.UtcNow < time && 
+                   !cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(50);
+                await Task.Delay(100);
             }
 
+            logger.LogDebug($"Time waited for connection update {DateTime.UtcNow - time}");
             return IsConnected;
         }
 

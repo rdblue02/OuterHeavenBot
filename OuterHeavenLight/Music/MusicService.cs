@@ -7,6 +7,7 @@ using OuterHeavenLight.Entities;
 using OuterHeavenLight.Entities.Request;
 using OuterHeavenLight.Entities.Response.Websocket;
 using OuterHeavenLight.LavaConnection;
+using OuterHeavenLight.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -22,10 +23,8 @@ namespace OuterHeavenLight.Music
         Lava lava;
         ConcurrentQueue<LavaTrack> queuedTracks;
         MusicDiscordClient client;
-        MusicCommandHandler commandHandler;
-        TimeSpan waitUntilDisconnect = TimeSpan.FromSeconds(30);
-        bool isPlaying = false;
-
+        MusicCommandHandler commandHandler; 
+        
         public MusicService(ILogger<MusicService> logger,
                             Lava lava,
                             MusicDiscordClient client,
@@ -36,7 +35,12 @@ namespace OuterHeavenLight.Music
             queuedTracks = new ConcurrentQueue<LavaTrack>();
             this.client = client;
             this.commandHandler = commandHandler;
-            client.MessageReceived += async (arg) => { await commandHandler.HandleMessage(client, arg); };
+            client.MessageReceived += async (messageParam) => 
+            {
+                var userMessage = messageParam as SocketUserMessage;
+                if (userMessage == null) return;
+                await commandHandler.HandleCommandAsync(client, userMessage);
+            };
             this.lava.OnLavaTrackEndEvent += Lava_OnLavaTrackEndEvent;
             this.lava.OnLavaTrackStartEvent += Lava_OnLavaTrackStartEvent;
         }
@@ -51,22 +55,31 @@ namespace OuterHeavenLight.Music
         {
             if (!lava.IsPlaying)
             {
-                logger.LogInformation($"Skip requested for player when {nameof(lava.IsPlaying)} set to {lava.IsPlaying}");
+                logger.LogInformation($"Track info requested for player when {nameof(lava.IsPlaying)} set to {lava.IsPlaying}");
                 return null;
             }
 
             return lava?.ActiveTrack?.info;
         }
 
-        public QueueInfoMessageBuilder GetQeueueInfo()
+        public string GetQeueueInfo()
         {
-            return new QueueInfoMessageBuilder(queuedTracks.ToList());
+            var tracks = new List<LavaTrack>();
+
+            if (lava.ActiveTrack != null)
+            {
+                tracks.Add(lava.ActiveTrack);
+            }
+
+            tracks.AddRange(queuedTracks.ToList());
+
+            return new QueueInfoMessageBuilder(tracks).Build();
         }
 
         public string ClearQueue(int? position = null)
         {
             var result = $"Queue is empty, nothing to clear.";
-            if (!isPlaying || queuedTracks.IsEmpty)
+            if (queuedTracks.IsEmpty)
             {
                 return result;
             }
@@ -95,7 +108,7 @@ namespace OuterHeavenLight.Music
 
         public async Task Skip()
         {
-            if (!isPlaying)
+            if (!lava.IsPlaying)
             {
                 logger.LogError("Bot is not currently playing");
                 return;
@@ -113,7 +126,6 @@ namespace OuterHeavenLight.Music
 
         public async Task Query(SocketCommandContext context, string query)
         {
-
             var commandUserVoice = (context.User as IVoiceState)?.VoiceChannel ?? (System.Diagnostics.Debugger.IsAttached ? context.Guild.Channels.OfType<IVoiceChannel>()
                                                                                                                                                   .FirstOrDefault(x => x.Name == "audiotest") : null);
             if (commandUserVoice == null)
@@ -156,7 +168,7 @@ namespace OuterHeavenLight.Music
 
             logger.LogInformation($"Found track {firstTrack.info.title} from source {firstTrack.info.uri}");
 
-            if (queuedTracks.IsEmpty && !isPlaying)
+            if (queuedTracks.IsEmpty && !lava.IsPlaying)
             {
                 logger.LogInformation($"Queue is empty. Processing {result.LoadType}.");
                 await lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = firstTrack.encoded, userData = userData });
@@ -182,55 +194,31 @@ namespace OuterHeavenLight.Music
         private async Task Lava_OnLavaTrackStartEvent(TrackStartWebsocketEvent arg)
         {
             logger.LogInformation($"Now playing {arg.Track.info.title}. Command channel {arg.IssuedCommandChannelId}");
-            isPlaying = true;
-
+          
             await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Now playing track - {arg?.Track?.info?.title ?? "error"}");
         }
 
         private async Task Lava_OnLavaTrackEndEvent(TrackEndWebsocketEvent arg)
         {
             logger.LogInformation($"Track {arg.Track?.info?.title} has ended. Reason [{arg.Reason}]");
-
+         
+            //handled in skip command logic
             if (arg.Reason == LavalinkTrackEndReason.replaced)
-            {
-                //handled in skip command logic
+            { 
                 return;
             }
 
-            if (arg.Reason == LavalinkTrackEndReason.invalid ||
-                arg.Reason == LavalinkTrackEndReason.cleanup)
+            if (arg.Reason == LavalinkTrackEndReason.invalid)
             {
                 await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Error playing track title {arg?.Track?.info?.title ?? "error"}");
-
                 return;
             }
 
-            if (arg.Reason == LavalinkTrackEndReason.stopped ||
-                !queuedTracks.TryDequeue(out var next))
+            if (queuedTracks.TryDequeue(out var next))
             {
-                queuedTracks.Clear();
-                isPlaying = false;
-
-                await Task.Run(async () =>
-                {
-                    var disconnectTime = DateTime.UtcNow.Add(waitUntilDisconnect);
-
-                    while (!isPlaying && DateTime.UtcNow < disconnectTime)
-                    {
-                        await Task.Delay(100);
-                    }
-
-                    if (!isPlaying)
-                    {
-                        logger.LogInformation("Idle timer has been reached. Disconnecting bot");
-                        await lava.DisconnectFromChannel();
-                    }
-                });
-
+                await lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = next.encoded, userData = next.UserData });
                 return;
-            }
-
-            await lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = next.encoded, userData = next.UserData });
+            } 
         }
 
         Task SendMessageToExecutingCommandChannel(Userdata? userdata, string message)

@@ -11,9 +11,8 @@ using OuterHeavenLight.Constants;
 namespace OuterHeavenLight.Clippies
 {
     public class ClippieCommandHandler 
-    {
-        public bool IsInitialized { get; private set; } = false;
-        protected readonly CommandService commandService;     
+    { 
+        private readonly CommandService commandService;     
         private readonly IServiceProvider serviceProvider;
         private readonly ILogger logger;
         private readonly List<CommandInfo> commands;
@@ -29,8 +28,7 @@ namespace OuterHeavenLight.Clippies
             this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             this.commands = new List<CommandInfo>();
-            commandService.Log += CommandService_Log;
- 
+            commandService.Log += CommandService_Log; 
         }
 
         public async Task InstallCommandsAsync(List<Type> types)
@@ -38,17 +36,18 @@ namespace OuterHeavenLight.Clippies
             foreach(var type in types)
             {
                 var module = await commandService.AddModuleAsync(type, serviceProvider);
-                
-                this.commands.AddRange(module.Commands);
+                foreach (var command in module.Commands) 
+                {
+                    if (!this.commands.Contains(command))
+                    {
+                        commands.Add(command);
+                        logger.LogInformation($"Adding command {command.Name}");
+                    }
+                } 
             }
-            foreach (var command in this.commands)
-            {
-                logger.LogInformation($"Adding command {command.Name}");
-            }
-
+ 
             logger.LogInformation($"Initialization of {this.GetType().Name} complete");
-          
-            this.IsInitialized = true;
+           
         }
          
         public async Task HandleCommandAsync(DiscordSocketClient discordSocketClient, SocketUserMessage message)
@@ -61,8 +60,7 @@ namespace OuterHeavenLight.Clippies
                 var argPos = GetCommandArgPos(discordSocketClient.CurrentUser, message);
 
                 if (argPos < 1) 
-                {
-                    logger.LogError($"Invalid message {message?.Content} sent by {message?.Author?.Username}");
+                {                 
                     return;
                 }
                  
@@ -100,9 +98,12 @@ namespace OuterHeavenLight.Clippies
         {
             var argPos = 0;
 
-            if (!(userMessage.HasCharPrefix(Prefix, ref argPos) ||
-                userMessage.HasMentionPrefix(selfUser, ref argPos))) return 0;
-
+            if (!userMessage.HasCharPrefix(Prefix, ref argPos) || 
+                 userMessage.HasMentionPrefix(selfUser, ref argPos))
+            {
+                return 0;
+            }
+                   
             return argPos;
         }
 

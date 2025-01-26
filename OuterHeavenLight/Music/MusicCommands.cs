@@ -72,8 +72,7 @@ namespace OuterHeavenLight.Music
         {
             try
             {
-                var builder = musicService.GetQeueueInfo();
-                var message = builder.Build();
+                var message = musicService.GetQeueueInfo(); 
 
                 await ReplyAsync(message);
             }

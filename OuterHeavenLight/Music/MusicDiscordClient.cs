@@ -12,10 +12,10 @@ namespace OuterHeavenLight.Music
 {
     public class MusicDiscordClient:DiscordSocketClient
     {
-        private readonly ILogger<ClippieDiscordClient> logger;
+        private readonly ILogger<MusicDiscordClient> logger;
         private readonly AppSettings botSettings;
 
-        public MusicDiscordClient(ILogger<ClippieDiscordClient> logger,
+        public MusicDiscordClient(ILogger<MusicDiscordClient> logger,
                                     AppSettings botSettings) : base(new DiscordSocketConfig()
                                     {
                                         LogLevel = LogSeverity.Verbose,

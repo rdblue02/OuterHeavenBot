@@ -11,8 +11,7 @@ namespace OuterHeavenLight.Clippies
     {
         ILogger logger;
         ClippieDiscordClient discordClient;
-        ClippieCommandHandler clippieCommandHandler; 
- 
+        ClippieCommandHandler clippieCommandHandler;
         public ClippliePlayerState clippliePlayerState { get; private set; } = ClippliePlayerState.Disconnected;
 
         public ClippieService(ILogger<ClippieService> logger,
@@ -21,39 +20,34 @@ namespace OuterHeavenLight.Clippies
         {
             this.logger = logger;
             this.discordClient = client;
-            this.clippieCommandHandler = clippieCommandHandler; 
+            this.clippieCommandHandler = clippieCommandHandler;
 
-            discordClient.Ready += DiscordClient_Ready;
-            
-            discordClient.MessageReceived += DiscordClient_MessageReceived;
-            discordClient.Disconnected += DiscordClient_Disconnected; 
-        }  
+            discordClient.Ready += () =>
+            {
+                this.clippliePlayerState = ClippliePlayerState.Available;
+                return Task.CompletedTask;
+            };
 
-        public async Task InitializeAsync() 
+            discordClient.MessageReceived += async (messageParam) =>
+            {
+                var userMessage = messageParam as SocketUserMessage;
+                if (userMessage == null) return;
+
+                await clippieCommandHandler.HandleCommandAsync(discordClient, userMessage);
+            };
+
+            discordClient.Disconnected += (err) =>
+            {
+                this.clippliePlayerState = ClippliePlayerState.Disconnected;
+                logger.LogError(err?.ToString() ?? "");
+                return Task.CompletedTask;
+            };
+        }
+
+        public async Task InitializeAsync()
         {
             await this.discordClient.InitializeAsync();
             await clippieCommandHandler.InstallCommandsAsync(new List<Type>() { (typeof(ClippieCommands)) });
-        }  
-
-        private Task DiscordClient_Ready()
-        { 
-            this.clippliePlayerState = ClippliePlayerState.Available;
-            return Task.CompletedTask;
-        }
- 
-        private Task DiscordClient_Disconnected(Exception arg)
-        {
-            this.clippliePlayerState = ClippliePlayerState.Disconnected;
-            logger.LogError(arg?.ToString() ?? "");  
-            return Task.CompletedTask;
-        }
-
-        private async Task DiscordClient_MessageReceived(SocketMessage messageParam)
-        {
-            var userMessage = messageParam as SocketUserMessage;
-            if (userMessage == null) return;
-
-            await clippieCommandHandler.HandleCommandAsync(discordClient, userMessage);  
         }
 
         public async Task PlayClippie(string contentRequested, SocketCommandContext context, CancellationToken cancellationToken = default)
@@ -68,9 +62,9 @@ namespace OuterHeavenLight.Clippies
                 }
 
                 if (context.User is IVoiceState voice && voice.VoiceChannel != null)
-                { 
-                    clippliePlayerState = ClippliePlayerState.Playing; 
-                    await PlayClippie(contentRequested,context.Channel, voice.VoiceChannel, cancellationToken); 
+                {
+                    clippliePlayerState = ClippliePlayerState.Playing;
+                    await PlayClippie(contentRequested, context.Channel, voice.VoiceChannel, cancellationToken);
                 }
                 else
                 {
@@ -79,33 +73,33 @@ namespace OuterHeavenLight.Clippies
             }
             catch (Exception ex)
             {
-                this.logger.LogError(ex.ToString()); 
-            } 
+                this.logger.LogError(ex.ToString());
+            }
         }
 
         private async Task PlayClippie(string contentRequested, ISocketMessageChannel channel, IVoiceChannel voice, CancellationToken cancellationToken = default)
         {
             try
-            {   
+            {
                 var bytes = ClippieHelpers.ReadClippieFile(contentRequested);
-               
-                if(bytes?.Any() ?? false)
-                { 
+
+                if (bytes?.Any() ?? false)
+                {
                     var audioClient = await voice.ConnectAsync();
                     await Task.Delay(200);
                     var discordOutStream = audioClient.CreatePCMStream(AudioApplication.Mixed, 98304, 20);
-                        await discordOutStream.WriteAsync(bytes, cancellationToken); 
-                              discordOutStream.Flush();
+                    await discordOutStream.WriteAsync(bytes, cancellationToken);
+                    discordOutStream.Flush();
                     logger.LogInformation("Clippie finished");
                     audioClient.Dispose();
-                    discordOutStream.Dispose();  
+                    discordOutStream.Dispose();
                     await voice.DisconnectAsync();
                     await Task.Delay(300);
                     this.clippliePlayerState = ClippliePlayerState.Available;
                 }
                 else
                 {
-                    await channel.SendMessageAsync($"No files found for {contentRequested}");               
+                    await channel.SendMessageAsync($"No files found for {contentRequested}");
                 }
             }
 
@@ -116,6 +110,6 @@ namespace OuterHeavenLight.Clippies
                 await Task.Delay(500);
                 this.clippliePlayerState = ClippliePlayerState.Available;
             }
-        }  
+        }
     }
 }
