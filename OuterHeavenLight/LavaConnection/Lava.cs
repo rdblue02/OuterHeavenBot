@@ -29,23 +29,21 @@ namespace OuterHeavenLight.LavaConnection
         public event Func<TrackStuckWebsocketEvent, Task>? OnLavaTrackStuckEvent;
         public event Func<ClosedWebsocketEvent, Task>? OnLavaConnectionClosed;
         public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate;
+    
         public bool IsPlaying => player?.track != null && !player.paused && IsConnected;
-        public LavaTrack? ActiveTrack => player?.track;
         public bool IsConnected => voiceState.VoiceLoaded();
+        public LavaTrack? ActiveTrack => player?.track;
 
-        private WebsocketClient? websocket;
         private ILogger<Lava> logger;
-        private LavaStatsWebsocketMessage stats = new LavaStatsWebsocketMessage();
-        private DiscordSocketClient discordClient;
+        private LavaStatsWebsocketMessage stats;
+        private WebsocketClient? websocket;
+        private DiscordSocketClient client;
         private AppSettings settings;
         private LavalinkEndpointProvider endpointProvider;
         private LavalinkRestNode restNode;
-        private ConcurrentQueue<Func<Task>> pendingUpdates = new ConcurrentQueue<Func<Task>>();
         private VoiceState voiceState = new VoiceState();
         private LavaPlayer? player;
-        private LavaFileCache? fileCache;
-      
-        private bool listeningForUpdates = false;
+        private LavaFileCache? fileCache;  
         private DateTime timeOfLastActivity = DateTime.UtcNow;
         private TimeSpan idleDisconnectWait = TimeSpan.FromMinutes(2);
         private TimeSpan timeout = TimeSpan.FromSeconds(30);
@@ -58,20 +56,21 @@ namespace OuterHeavenLight.LavaConnection
                     LavalinkRestNode lavalinkRest)
         {
             this.logger = logger;
-            discordClient = client;
-            settings = lavaSettings;
-            endpointProvider = lavalinkEndpointProvider;
-            restNode = lavalinkRest;
+            this.client = client;
+            this.settings = lavaSettings;
+            this.endpointProvider = lavalinkEndpointProvider;
+            this.restNode = lavalinkRest;
             this.fileCache = LavaFileCache.Read();
-
-            if(!string.IsNullOrWhiteSpace(fileCache?.LavalinkSessionId))
+            this.stats = new LavaStatsWebsocketMessage();
+         
+            if (!string.IsNullOrWhiteSpace(fileCache?.LavalinkSessionId))
             {
                 this.voiceState.LavaSessionId = fileCache.LavalinkSessionId;
             }
 
-            discordClient.VoiceServerUpdated += DiscordClient_VoiceServerUpdated;
-            discordClient.UserVoiceStateUpdated += DiscordClient_UserVoiceStateUpdated;
-            discordClient.Ready += async () =>
+            this.client.VoiceServerUpdated += DiscordClient_VoiceServerUpdated;
+            this.client.UserVoiceStateUpdated += DiscordClient_UserVoiceStateUpdated;
+            this.client.Ready += async () =>
             {
                 logger.LogInformation("Discord client ready.");
                 if (websocket?.IsRunning ?? false)
@@ -89,19 +88,20 @@ namespace OuterHeavenLight.LavaConnection
 
                 return Task.CompletedTask;
             };
+
+            OnLavaTrackEndEvent += (args) => { this.timeOfLastActivity = DateTime.UtcNow; return Task.CompletedTask; };
         }
 
         public async Task Initialize()
         {
             logger.LogInformation("Initializing lavalink");
-            pendingUpdates.Clear();
             voiceState = new VoiceState();
 
             var startTasks = new List<Task>()
             {
-               discordClient.LoginAsync(TokenType.Bot, settings.OuterHeavenBotSettings.DiscordToken),
-               discordClient.SetGameAsync("|~h for more info", null, ActivityType.Playing),
-               discordClient.StartAsync()
+               client.LoginAsync(TokenType.Bot, settings.OuterHeavenBotSettings.DiscordToken),
+               client.SetGameAsync("|~h for more info", null, ActivityType.Playing),
+               client.StartAsync()
             };
 
             await Task.WhenAll(startTasks);
@@ -189,23 +189,14 @@ namespace OuterHeavenLight.LavaConnection
             player = await restNode.UpdatePlayer(voiceState.GuildId, voiceState.LavaSessionId, playerUpdate);
         }
 
-        public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
-        {
-            var result = await restNode.SearchForTracks(queryRaw, searchType);
-
-            if (result.TrackException != null)
-            {
-                logger.LogError($"Error running query {queryRaw}\nError level: {result.TrackException.Severity}\nError Message: {result.TrackException.Message}\nCause: {result.TrackException.Cause}");
-            }
-
-            return result;
-        }
+        public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType = LavalinkSearchType.ytsearch) =>
+                                        await restNode.SearchForTracks(queryRaw, searchType); 
 
         public async Task DisconnectFromChannel()
         {
             if (voiceState.DiscordVoiceLoaded() && ulong.TryParse(voiceState.ChannelId, out var channelId))
             {
-                var channel = discordClient.GetChannel(channelId) as IVoiceChannel;
+                var channel = client.GetChannel(channelId) as IVoiceChannel;
 
                 if (channel != null)
                 {
@@ -241,7 +232,7 @@ namespace OuterHeavenLight.LavaConnection
                                client.Options.SetRequestHeader("Resume-Key", voiceState.LavaSessionId);
                            }
 
-                           client.Options.SetRequestHeader("User-Id", discordClient.CurrentUser.Id.ToString());
+                           client.Options.SetRequestHeader("User-Id", this.client.CurrentUser.Id.ToString());
                            return client;
                        });
 
@@ -357,7 +348,7 @@ namespace OuterHeavenLight.LavaConnection
         private Task DiscordClient_UserVoiceStateUpdated(SocketUser user, SocketVoiceState previousState, SocketVoiceState currentState)
         {
             //Ignore updates from other users.
-            if (user.Id != discordClient.CurrentUser.Id)
+            if (user.Id != client.CurrentUser.Id)
             {
                 return Task.CompletedTask;
             }
@@ -425,7 +416,6 @@ namespace OuterHeavenLight.LavaConnection
 
         public void Dispose()
         {
-            listeningForUpdates = false;
             websocket?.Dispose();
         }
     }
