@@ -3,19 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31919.166
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OuterHeavenBot", "OuterHeavenBot\OuterHeavenBot.csproj", "{0882FB08-C3A2-4774-9178-8C3214929C92}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OuterHeavenBot.Lavalink", "OuterHeavenBot.Lavalink\OuterHeavenBot.Lavalink.csproj", "{215FCB6B-6A5A-46AA-9506-85588D6224E5}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OuterHeavenBot.Client", "OuterHeavenBot.Client\OuterHeavenBot.Client.csproj", "{A3B80DC3-EB9C-4A60-9D9A-6F431483C777}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OuterHeavenBot.Core", "OuterHeavenBot.Core\OuterHeavenBot.Core.csproj", "{585F811D-5A29-45DE-BC7B-AE0FF8228526}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8FD20AF0-22BE-4157-99AF-FA77F2B499FF}"
 	ProjectSection(SolutionItems) = preProject
 		libsodium.dll = libsodium.dll
 		opus.dll = opus.dll
 	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OuterHeavenLight", "OuterHeavenLight\OuterHeavenLight.csproj", "{DC97E756-0169-4F0A-AA73-970DEF73EAC8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,22 +17,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0882FB08-C3A2-4774-9178-8C3214929C92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0882FB08-C3A2-4774-9178-8C3214929C92}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0882FB08-C3A2-4774-9178-8C3214929C92}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0882FB08-C3A2-4774-9178-8C3214929C92}.Release|Any CPU.Build.0 = Release|Any CPU
-		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{215FCB6B-6A5A-46AA-9506-85588D6224E5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A3B80DC3-EB9C-4A60-9D9A-6F431483C777}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A3B80DC3-EB9C-4A60-9D9A-6F431483C777}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A3B80DC3-EB9C-4A60-9D9A-6F431483C777}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A3B80DC3-EB9C-4A60-9D9A-6F431483C777}.Release|Any CPU.Build.0 = Release|Any CPU
-		{585F811D-5A29-45DE-BC7B-AE0FF8228526}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{585F811D-5A29-45DE-BC7B-AE0FF8228526}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{585F811D-5A29-45DE-BC7B-AE0FF8228526}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{585F811D-5A29-45DE-BC7B-AE0FF8228526}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DC97E756-0169-4F0A-AA73-970DEF73EAC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC97E756-0169-4F0A-AA73-970DEF73EAC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC97E756-0169-4F0A-AA73-970DEF73EAC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC97E756-0169-4F0A-AA73-970DEF73EAC8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
