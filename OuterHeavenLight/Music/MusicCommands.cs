@@ -66,13 +66,29 @@ namespace OuterHeavenLight.Music
             }
         }
 
+        [Command("skip", RunMode = RunMode.Async)]
+        [Alias("sk")]
+        public async Task PauseResume()
+        {
+            try
+            {
+                var result = await musicService.PauseResume();
+                await ReplyAsync(result);
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
+            }
+        }
+
         [Command("queue", RunMode = RunMode.Async)]
         [Alias("q")]
         public async Task QueueInfo()
         {
             try
             {
-                var message = musicService.GetQeueueInfo(); 
+                var message = musicService.GetQeueueInfo();
 
                 await ReplyAsync(message);
             }

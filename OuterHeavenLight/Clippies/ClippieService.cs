@@ -3,6 +3,8 @@ using Discord;
 using Discord.Audio;
 using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenLight.Dev;
+using OuterHeavenLight.Music;
 using System.Threading.Channels;
 
 namespace OuterHeavenLight.Clippies
@@ -16,7 +18,8 @@ namespace OuterHeavenLight.Clippies
 
         public ClippieService(ILogger<ClippieService> logger,
                               ClippieDiscordClient client,
-                              ClippieCommandHandler clippieCommandHandler)
+                              ClippieCommandHandler clippieCommandHandler,
+                              DevCommandHandler devCommandHandler)
         {
             this.logger = logger;
             this.discordClient = client;
@@ -33,7 +36,14 @@ namespace OuterHeavenLight.Clippies
                 var userMessage = messageParam as SocketUserMessage;
                 if (userMessage == null) return;
 
-                await clippieCommandHandler.HandleCommandAsync(discordClient, userMessage);
+                if (devCommandHandler.IsDevCommandFor<ClippieDiscordClient>(userMessage))
+                {
+                    await devCommandHandler.HandleCommandAsync(client, userMessage);
+                }
+                else
+                {
+                    await clippieCommandHandler.HandleCommandAsync(client, userMessage);
+                }
             };
 
             discordClient.Disconnected += (err) =>

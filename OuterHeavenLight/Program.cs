@@ -5,6 +5,7 @@ using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Clippies;
 using OuterHeavenLight.Music;
 using OuterHeavenLight.LavaConnection;
+using OuterHeavenLight.Dev;
 
 namespace OuterHeavenLight
 {
@@ -22,8 +23,11 @@ namespace OuterHeavenLight
                 } 
 
                 var builder = Host.CreateApplicationBuilder(args);
-
-                var settings = CreateSettings(builder.Services);
+                    builder.Configuration.AddEnvironmentVariables();
+      
+                
+                var settings = builder.Configuration.Get<AppSettings>() ?? throw new ArgumentNullException(nameof(AppSettings));
+                 
                 builder.Services.AddSingleton(settings);
                 builder.Services.AddLogging(x =>
                 {
@@ -35,6 +39,9 @@ namespace OuterHeavenLight
                 });
 
                 builder.Services.AddSingleton<CommandService>();
+                //dev
+                builder.Services.AddSingleton<DevCommandHandler>();
+                builder.Services.AddSingleton<DevCommands>();
 
                 //lava
                 builder.Services.AddSingleton<LavalinkEndpointProvider>();
@@ -62,19 +69,6 @@ namespace OuterHeavenLight
                 Console.WriteLine(ex.ToString());
                 Console.ReadLine();
             }           
-        }
-
-         static AppSettings CreateSettings(IServiceCollection services)
-        {
-            var configName = System.Diagnostics.Debugger.IsAttached ? "appsettings.Development.json" : "appsettings.json";
-            IConfiguration config = new ConfigurationBuilder()
-           .AddJsonFile(configName)
-           .AddEnvironmentVariables()
-           .Build();
-
-            var settings = config.GetRequiredSection(nameof(AppSettings)).Get<AppSettings>() ?? throw new ArgumentNullException(nameof(AppSettings), $"Cannot resolve {nameof(AppSettings)}"); 
-            return settings;
-        }
+        }  
     }
-
 }

@@ -127,6 +127,17 @@ namespace OuterHeavenLight.LavaConnection
             }
         }
          
+        public async Task<LavaPlayer?> PauseResume()
+        {
+            if(this.player == null)
+            {
+                return null;
+            }
+
+           var result = await this.restNode.UpdatePlayer(this.voiceState.GuildId,this.voiceState.LavaSessionId, new PlayerUpdateRequest() { paused = !player.paused });
+           return result;
+        }
+
         public async Task UpdatePlayer(UpdatePlayerTrack track)
         {
             this.timeOfLastActivity = DateTime.UtcNow;

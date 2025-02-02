@@ -53,7 +53,7 @@ namespace OuterHeavenLight.Music
             {
                 var userMessage = message as SocketUserMessage;
                 if (userMessage == null || message.Author.IsBot) return;
-
+             
                 var argPos = GetCommandArgPos(discordSocketClient.CurrentUser, message);
 
                 if (argPos < 1)

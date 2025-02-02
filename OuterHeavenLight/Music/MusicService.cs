@@ -3,6 +3,7 @@ using Discord.Audio;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
+using OuterHeavenLight.Dev;
 using OuterHeavenLight.Entities;
 using OuterHeavenLight.Entities.Request;
 using OuterHeavenLight.Entities.Response.Websocket;
@@ -14,6 +15,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace OuterHeavenLight.Music
 {
@@ -24,23 +26,35 @@ namespace OuterHeavenLight.Music
         ConcurrentQueue<LavaTrack> queuedTracks;
         MusicDiscordClient client;
         MusicCommandHandler commandHandler; 
+        DevCommandHandler devCommandHandler;
         
         public MusicService(ILogger<MusicService> logger,
                             Lava lava,
                             MusicDiscordClient client,
-                            MusicCommandHandler commandHandler)
+                            MusicCommandHandler commandHandler,
+                            DevCommandHandler devCommandHandler)
         {
             this.logger = logger;
             this.lava = lava;
             queuedTracks = new ConcurrentQueue<LavaTrack>();
             this.client = client;
             this.commandHandler = commandHandler;
+            this.devCommandHandler = devCommandHandler;
             client.MessageReceived += async (messageParam) => 
             {
                 var userMessage = messageParam as SocketUserMessage;
                 if (userMessage == null) return;
-                await commandHandler.HandleCommandAsync(client, userMessage);
+
+                if (devCommandHandler.IsDevCommandFor<MusicDiscordClient>(userMessage)) 
+                {
+                    await devCommandHandler.HandleCommandAsync(client, userMessage);
+                }
+                else
+                {
+                    await commandHandler.HandleCommandAsync(client, userMessage);
+                } 
             };
+
             this.lava.OnLavaTrackEndEvent += Lava_OnLavaTrackEndEvent;
             this.lava.OnLavaTrackStartEvent += Lava_OnLavaTrackStartEvent;
         }
@@ -49,6 +63,7 @@ namespace OuterHeavenLight.Music
         {
             logger.LogInformation("Initializing music service");
             await commandHandler.InstallCommandsAsync(new List<Type>() { typeof(MusicCommands) });
+            await devCommandHandler.InstallCommandsAsync();
         }
 
         public LavaTrackInfo? GetCurrentTrackInfo()
@@ -105,7 +120,16 @@ namespace OuterHeavenLight.Music
 
             return result;
         }
+        public async Task Pause()
+        {
+            if (!lava.IsPlaying)
+            {
+                logger.LogError("Bot is not currently playing");
+                return;
+            }
 
+            await lava.UpdatePlayer(new UpdatePlayerTrack() {  });
+        }
         public async Task Skip()
         {
             if (!lava.IsPlaying)
@@ -122,6 +146,25 @@ namespace OuterHeavenLight.Music
             {
                 await lava.StopPlayer();
             }
+        }
+
+        public async Task<string> PauseResume()
+        {
+            if (!lava.IsPlaying)
+            {
+                logger.LogError("Bot is not currently playing");
+                return "Bot is not currently playing";
+            }
+    
+            var result = await lava.PauseResume();
+
+            if (result == null) 
+            {
+                logger.LogError("Cannot update null player");
+                return "Error updating player";
+            }
+             
+           return result.paused ? $"Pausing {result.track.info.title}" : $"Resuming {result.track.info.title}";
         }
 
         public async Task Query(SocketCommandContext context, string query)

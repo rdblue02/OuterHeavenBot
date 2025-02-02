@@ -27,6 +27,7 @@ namespace OuterHeavenLight.Music
             this.logger = logger;
             this.botSettings = botSettings;
             this.Log += MusicDiscordClient_Log;
+          
         }
        
 
