@@ -28,9 +28,8 @@ namespace OuterHeavenLight.LavaConnection
         public event Func<TrackExceptionWebsocketEvent, Task>? OnLavaTrackExceptionEvent;
         public event Func<TrackStuckWebsocketEvent, Task>? OnLavaTrackStuckEvent;
         public event Func<ClosedWebsocketEvent, Task>? OnLavaConnectionClosed;
-        public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate;
-    
-        public bool IsPlaying => player?.track != null && !player.paused && IsConnected;
+        public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate; 
+        public bool IsPlaying => player?.track != null &&  IsConnected;
         public bool IsConnected => voiceState.VoiceLoaded();
         public LavaTrack? ActiveTrack => player?.track;
 
@@ -134,11 +133,12 @@ namespace OuterHeavenLight.LavaConnection
                 return null;
             }
 
-           var result = await this.restNode.UpdatePlayer(this.voiceState.GuildId,this.voiceState.LavaSessionId, new PlayerUpdateRequest() { paused = !player.paused });
-           return result;
-        }
+           this.player = await this.restNode.UpdatePlayer(this.voiceState.GuildId,this.voiceState.LavaSessionId, new PlayerUpdateRequest() { paused = !player.paused });
 
-        public async Task UpdatePlayer(UpdatePlayerTrack track)
+           return player;
+        }
+    
+        public async Task UpdatePlayer(UpdatePlayerTrack track, bool noReplace = false)
         {
             this.timeOfLastActivity = DateTime.UtcNow;
             logger.LogInformation("Updating player with voice state\n" + voiceState.ToString());
@@ -159,7 +159,7 @@ namespace OuterHeavenLight.LavaConnection
                     return;
                 }
 
-                player = await restNode.UpdatePlayer(voiceState.GuildId, voiceState.LavaSessionId, playerUpdate);
+                player = await restNode.UpdatePlayer(voiceState.GuildId, voiceState.LavaSessionId, playerUpdate, noReplace);
                 logger.LogInformation($"Updated player - voice session {player?.voice.DiscordVoiceSessionId} host session {voiceState.LavaSessionId} | connected {player?.state.connected} | current track {player?.track?.info?.title}");
             });
         }
@@ -339,7 +339,12 @@ namespace OuterHeavenLight.LavaConnection
                     break;
                 case LavalinkWebsocketEventType.TrackEndEvent:
                     var tEnd = jsonNode.Deserialize<TrackEndWebsocketEvent>() ?? throw new ArgumentNullException(nameof(TrackEndWebsocketEvent));
-                    if (tEnd != null && OnLavaTrackEndEvent != null) await OnLavaTrackEndEvent.Invoke(tEnd);
+                    if (tEnd != null && OnLavaTrackEndEvent != null)
+                    { 
+                        await OnLavaTrackEndEvent.Invoke(tEnd);
+                        if(this.player!=null)
+                        this.player.track = null;
+                    }
                     break;
                 case LavalinkWebsocketEventType.TrackStuckEvent:
                     var tStuck = jsonNode.Deserialize<TrackStuckWebsocketEvent>() ?? throw new ArgumentNullException(nameof(TrackStuckWebsocketEvent));

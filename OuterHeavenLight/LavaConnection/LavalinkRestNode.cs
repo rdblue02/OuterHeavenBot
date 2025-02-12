@@ -137,8 +137,9 @@ namespace OuterHeavenLight.LavaConnection
             if (result.LoadType == LavalinkLoadType.track)
             {
                 var track = json.Deserialize<TrackLoaded>()?.Track;
+               
                 if (track != null)
-                {
+                {                
                     result.LoadedTracks.Add(track);
                 }
             }

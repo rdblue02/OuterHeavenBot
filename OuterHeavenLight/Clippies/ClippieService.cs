@@ -32,18 +32,12 @@ namespace OuterHeavenLight.Clippies
             };
 
             discordClient.MessageReceived += async (messageParam) =>
-            {
-                var userMessage = messageParam as SocketUserMessage;
-                if (userMessage == null) return;
+            { 
 
-                if (devCommandHandler.IsDevCommandFor<ClippieDiscordClient>(userMessage))
+                if (messageParam is SocketUserMessage message && clippieCommandHandler.ShouldExecuteCommand(client, message))
                 {
-                    await devCommandHandler.HandleCommandAsync(client, userMessage);
-                }
-                else
-                {
-                    await clippieCommandHandler.HandleCommandAsync(client, userMessage);
-                }
+                    await clippieCommandHandler.HandleCommandAsync(client, message); 
+                } 
             };
 
             discordClient.Disconnected += (err) =>

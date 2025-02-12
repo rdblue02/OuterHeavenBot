@@ -1,11 +1,16 @@
 using Discord.Commands;
-using Discord.WebSocket;
-using Discord;
+using log4net;
+using log4net.Appender;
+using log4net.Config;
+using log4net.Core;
+using log4net.Layout;
+using log4net.Repository.Hierarchy;
 using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Clippies;
-using OuterHeavenLight.Music;
-using OuterHeavenLight.LavaConnection;
 using OuterHeavenLight.Dev;
+using OuterHeavenLight.LavaConnection;
+using OuterHeavenLight.Music;
+using System.Reflection;
 
 namespace OuterHeavenLight
 {
@@ -25,16 +30,14 @@ namespace OuterHeavenLight
                 var builder = Host.CreateApplicationBuilder(args);
                     builder.Configuration.AddEnvironmentVariables();
       
-                
                 var settings = builder.Configuration.Get<AppSettings>() ?? throw new ArgumentNullException(nameof(AppSettings));
                  
                 builder.Services.AddSingleton(settings);
                 builder.Services.AddLogging(x =>
-                {
-
-                    var log4netPath = Path.Combine(Directory.GetCurrentDirectory(), "log4net.config");
-
-                    x.AddLog4Net(log4netPath, true);
+                { 
+                    var logDirectoryName = settings.AppLogDirectory ?? throw new ArgumentNullException(nameof(settings.AppLogDirectory));
+ 
+                    x.AddLog4Net(); 
                     x.AddConsole();
                 });
 
@@ -62,6 +65,7 @@ namespace OuterHeavenLight
                 builder.Services.AddHostedService<ClippieWorker>();
                  
                 var host = builder.Build();
+                LogManager.GetLogger(typeof(Program)).Info("Starting application logger");
                 host.Run();
             }
             catch (Exception ex) 

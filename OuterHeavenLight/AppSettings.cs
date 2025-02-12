@@ -9,14 +9,17 @@ namespace OuterHeaven.LavalinkLight
 {
     public class AppSettings
     {
-        public OuterHeavenBotSettings OuterHeavenBotSettings { get; set; }
 
-        public ClippieBotSettings ClippieBotSettings { get; set; }
+        public string AppLogDirectory { get; set; } = "";
+        public OuterHeavenBotSettings? OuterHeavenBotSettings { get; set; }
+
+        public ClippieBotSettings? ClippieBotSettings { get; set; }
     }
 
     public class OuterHeavenBotSettings : BotSettings
     {
         public string PlayLocalDirectory { get; set; } = "";
+        public string LavalinkDirectory { get; set; } = "";
     }
 
     public class ClippieBotSettings : BotSettings

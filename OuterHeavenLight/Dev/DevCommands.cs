@@ -4,95 +4,98 @@ using System.Reflection;
 using System.Linq;
 using Discord;
 using System.IO.Compression;
+using OuterHeaven.LavalinkLight;
+using System.Runtime.Serialization;
 
 namespace OuterHeavenLight.Dev
 {
     public class DevCommands : ModuleBase<SocketCommandContext>
     {
         ILogger<DevCommands> logger;
-        public DevCommands(ILogger<DevCommands> logger)
+        private AppSettings appsettings;
+        private string lavalinkLogName = "lava_log.txt";
+        private string appLogName = "bot_log.txt";
+        private string tempDirectorName = "temp";
+        public DevCommands(ILogger<DevCommands> logger,
+                           AppSettings appSettings)
         {
             this.logger = logger;
+            this.appsettings = appSettings;
         }
 
         [Command("logs", RunMode = RunMode.Async)]
         public async Task GetLogs()
         {
-            var executingFile = Assembly.GetEntryAssembly()?.Location;
+            var logFiles = GetLogFiles();
 
-            var workingDirectory = executingFile != null ? new FileInfo(executingFile)?.DirectoryName ?? Directory.GetCurrentDirectory() : Directory.GetCurrentDirectory();
+            if (logFiles.Any())
+            {
+                await SendApplicationLogFiles(logFiles);
+            }
+            else
+            {
+                await ReplyAsync("Error zipping log files");
+            }
+             
+        }
+        private List<FileInfo?> GetLogFiles()
+        {
 
-            var logGroups = new DirectoryInfo(workingDirectory).GetFiles("*log");
+            var parentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory()).Parent;
+         
+            var lavalog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)
+                                          .FirstOrDefault()?
+                                          .GetFiles(lavalinkLogName)
+                                          .OrderByDescending(x => x.CreationTime)
+                                          .FirstOrDefault();
+
+            var applog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)
+                                         .FirstOrDefault()?
+                                         .GetFiles(appLogName)
+                                         .OrderByDescending(x => x.CreationTime)
+                                         .FirstOrDefault();
+
+            return new List<FileInfo?> { lavalog, applog }.Where(x => x != null).ToList();
+        }
+ 
+        private async Task SendApplicationLogFiles(List<FileInfo?> files) 
+        {
+            var zipDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), tempDirectorName);
            
-        }
-
-        private async Task SendApplicationLogFile(string currentDirectory) 
-        {
-
-            var logDirectory = new DirectoryInfo(currentDirectory).GetDirectories().FirstOrDefault(x => x.Name == "logs");
-            if (logDirectory == null) { return; }
-
-            var logFiles = logDirectory.GetFiles().OrderByDescending(x => x.CreationTime).ToList();
-            var file = logFiles.FirstOrDefault();
-
-            if (!string.IsNullOrWhiteSpace(file?.Name))
+            if (!Directory.Exists(zipDirectoryPath))
             {
-                var zipDirectoryName = file.DirectoryName + "\\log_files";
-                DirectoryInfo zipDirectory = !Directory.Exists(zipDirectoryName) ? Directory.CreateDirectory(zipDirectoryName) :
-                                                                                   new DirectoryInfo(zipDirectoryName);
-
-                var zipFileName = $"{file.DirectoryName}\\{zipDirectory.Name}.zip";
-                File.Copy(file.FullName, $"{zipDirectory.FullName}\\{file.Name}", true);
-
-                ZipFile.CreateFromDirectory(zipDirectory.FullName, zipFileName);
-
-                await Context.User.SendFileAsync(zipFileName, "logs");
-                await Task.Delay(100);
-
-                File.Delete($"{zipDirectory.FullName}\\{file.Name}");
-                File.Delete(zipFileName);
-                Directory.Delete(zipDirectoryName);
-            }
-        }
-
-        private async Task SendLavalinkLogFile(string currentDirectory)
-        {
-            if (!Directory.Exists(currentDirectory)) { return ; }
-
-            var directoryInfo = new DirectoryInfo(currentDirectory);
-
-            while (directoryInfo != null &&
-                  !directoryInfo.GetDirectories().Any(x => x.Name.ToLower().Trim() == "lavalink"))
-            {
-                directoryInfo = directoryInfo.Parent;
-            }
-
-            if (directoryInfo == null)
-            {
-                return;
-            }
-            var logDirectory = directoryInfo.GetDirectories().FirstOrDefault(x => x.Name == "logs");
-            if (logDirectory == null) { return; }
-
-            var file = logDirectory.GetFiles().OrderByDescending(x => x.CreationTime).FirstOrDefault();
-            if(!string.IsNullOrWhiteSpace(file?.Name))
-            {
-                var zipDirectoryName = file.DirectoryName + "\\log_files";
-                DirectoryInfo zipDirectory = !Directory.Exists(zipDirectoryName) ? Directory.CreateDirectory(zipDirectoryName) :
-                                                                                   new DirectoryInfo(zipDirectoryName);
-
-                var zipFileName = $"{file.DirectoryName}\\{zipDirectory.Name}.zip";
-                File.Copy(file.FullName, $"{zipDirectory.FullName}\\{file.Name}", true);
-
-                ZipFile.CreateFromDirectory(zipDirectory.FullName, zipFileName);
-
-                await Context.User.SendFileAsync(zipFileName, "logs");
-                await Task.Delay(100);
-
-                File.Delete($"{zipDirectory.FullName}\\{file.Name}");
-                File.Delete(zipFileName);
-                Directory.Delete(zipDirectoryName);
+                Directory.CreateDirectory(zipDirectoryPath);
             } 
-        }
+
+            foreach (var file in files) 
+            {
+                if (!string.IsNullOrWhiteSpace(file?.Name))
+                {
+                    var destinationFilePath = $"{zipDirectoryPath}\\{file.Name}";
+                    File.Copy(file.FullName, destinationFilePath, true); 
+                }
+            }
+             
+            var zipFileName = $"{Directory.GetCurrentDirectory()}\\logs.zip";
+
+            if(File.Exists(zipFileName))
+            {
+                File.Delete(zipFileName); 
+            }
+
+            await Task.Delay(100);
+            ZipFile.CreateFromDirectory(tempDirectorName, zipFileName,CompressionLevel.SmallestSize, true);
+            await Task.Delay(100);
+            await Context.User.SendFileAsync(zipFileName, "logs");
+            await Task.Delay(100);
+          
+            foreach (var file in new DirectoryInfo(zipDirectoryPath).GetFiles())
+            {
+                File.Delete(file.FullName);
+            }
+              
+            Directory.Delete(zipDirectoryPath);
+            File.Delete(zipFileName);
+        } 
     }
 }

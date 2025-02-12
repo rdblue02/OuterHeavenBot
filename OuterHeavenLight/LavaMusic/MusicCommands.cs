@@ -42,6 +42,22 @@ namespace OuterHeavenLight.Music
             }
         }
 
+        [Command("playlocal", RunMode = RunMode.Async)]
+        [Alias("pl")]
+        public async Task PlayLocal([Remainder] string argument)
+        {
+            try
+            {
+                var response = await musicService.PlayLocalFile(Context, argument);
+                await ReplyAsync(response);
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
+            }
+        }
+
         [Command("skip", RunMode = RunMode.Async)]
         [Alias("sk")]
         public async Task Skip()
@@ -66,9 +82,24 @@ namespace OuterHeavenLight.Music
             }
         }
 
-        [Command("skip", RunMode = RunMode.Async)]
-        [Alias("sk")]
-        public async Task PauseResume()
+        [Command("pause", RunMode = RunMode.Async)]
+        [Alias("pa")]
+        public async Task Pause()
+        {
+            try
+            {    
+                var result = await musicService.PauseResume();
+                await ReplyAsync(result);
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
+            }
+        }
+        [Command("resume", RunMode = RunMode.Async)]
+        [Alias("re")]
+        public async Task Resume()
         {
             try
             {

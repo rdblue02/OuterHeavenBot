@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-OuterHeavenLight-d22dcec4-7603-4abc-9165-d51b8c798235</UserSecretsId>
-	  <Version>1.0.3</Version>
+	  <Version>1.0.5</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,5 +32,9 @@
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="music\" />
   </ItemGroup>
 </Project>

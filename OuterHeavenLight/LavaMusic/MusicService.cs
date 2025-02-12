@@ -25,34 +25,36 @@ namespace OuterHeavenLight.Music
         Lava lava;
         ConcurrentQueue<LavaTrack> queuedTracks;
         MusicDiscordClient client;
-        MusicCommandHandler commandHandler; 
+        MusicCommandHandler musicCommandHandler; 
         DevCommandHandler devCommandHandler;
         
         public MusicService(ILogger<MusicService> logger,
                             Lava lava,
                             MusicDiscordClient client,
-                            MusicCommandHandler commandHandler,
+                            MusicCommandHandler musicCommandHandler,
                             DevCommandHandler devCommandHandler)
         {
             this.logger = logger;
             this.lava = lava;
             queuedTracks = new ConcurrentQueue<LavaTrack>();
             this.client = client;
-            this.commandHandler = commandHandler;
+            this.musicCommandHandler = musicCommandHandler;
             this.devCommandHandler = devCommandHandler;
-            client.MessageReceived += async (messageParam) => 
+            client.MessageReceived += async (messageParam) =>   
             {
-                var userMessage = messageParam as SocketUserMessage;
-                if (userMessage == null) return;
+               var message = messageParam as SocketUserMessage;
 
-                if (devCommandHandler.IsDevCommandFor<MusicDiscordClient>(userMessage)) 
+                if (message != null && musicCommandHandler.ShouldExecuteCommand(client, messageParam))
                 {
-                    await devCommandHandler.HandleCommandAsync(client, userMessage);
+                    await musicCommandHandler.HandleCommandAsync(client, message);
+                    return;
                 }
-                else
+             
+                if (message != null && devCommandHandler.ShouldExecuteCommand(client, messageParam))
                 {
-                    await commandHandler.HandleCommandAsync(client, userMessage);
-                } 
+                    await devCommandHandler.HandleCommandAsync(client, message);
+                    return;
+                }              
             };
 
             this.lava.OnLavaTrackEndEvent += Lava_OnLavaTrackEndEvent;
@@ -62,8 +64,9 @@ namespace OuterHeavenLight.Music
         public async Task Initialize()
         {
             logger.LogInformation("Initializing music service");
-            await commandHandler.InstallCommandsAsync(new List<Type>() { typeof(MusicCommands) });
-            await devCommandHandler.InstallCommandsAsync();
+            await Task.WhenAll(musicCommandHandler.InstallCommandsAsync(new List<Type>() { typeof(MusicCommands) }),
+                     devCommandHandler.InstallCommandsAsync(new List<Type>() { typeof(DevCommands) }));
+
         }
 
         public LavaTrackInfo? GetCurrentTrackInfo()
@@ -78,7 +81,7 @@ namespace OuterHeavenLight.Music
         }
 
         public string GetQeueueInfo()
-        {
+        { 
             var tracks = new List<LavaTrack>();
 
             if (lava.ActiveTrack != null)
@@ -120,16 +123,7 @@ namespace OuterHeavenLight.Music
 
             return result;
         }
-        public async Task Pause()
-        {
-            if (!lava.IsPlaying)
-            {
-                logger.LogError("Bot is not currently playing");
-                return;
-            }
-
-            await lava.UpdatePlayer(new UpdatePlayerTrack() {  });
-        }
+       
         public async Task Skip()
         {
             if (!lava.IsPlaying)
@@ -165,6 +159,72 @@ namespace OuterHeavenLight.Music
             }
              
            return result.paused ? $"Pausing {result.track.info.title}" : $"Resuming {result.track.info.title}";
+        }
+
+        public async Task<string> PlayLocalFile(SocketCommandContext context, string path)
+        {
+            var commandUserVoice = (context.User as IVoiceState)?.VoiceChannel ?? (System.Diagnostics.Debugger.IsAttached ? context.Guild.Channels.OfType<IVoiceChannel>()
+                                                                                                                                                .FirstOrDefault(x => x.Name == "audiotest") : null);
+            if (commandUserVoice == null)
+            {
+                logger.LogError("Must be in a channel for this command");
+                await context.Channel.SendMessageAsync("Must be in a channel for this command");
+                return "Must be in a channel for this command";
+            }
+
+            FileInfo? musicFile = null;
+
+            if (File.Exists(path))
+            {
+                musicFile = new FileInfo(path);
+            }
+            else
+            {
+                var musicDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "music");
+
+                if (!Directory.Exists(musicDirectoryPath))
+                {
+                    return $"Cannot find music directory {path}";
+                }
+
+                var musicDirectory = new DirectoryInfo(musicDirectoryPath);
+                var musicFiles = musicDirectory.GetFiles();
+
+                musicFile = musicFiles.FirstOrDefault(x => string.Equals(x.FullName, path, StringComparison.OrdinalIgnoreCase)) ??
+                            musicFiles.FirstOrDefault(x => string.Equals(x.Name, path, StringComparison.OrdinalIgnoreCase)) ??
+                            musicFiles.FirstOrDefault(x => x.Name.ToLower().Contains(path.ToLower()));
+            }
+
+            if (musicFile == null)
+            {
+                return $"Unable to find file {path}";
+            }
+         
+            var searchResult = await lava.SearchForTracks(musicFile.FullName, LavalinkSearchType.Raw);
+            var track = searchResult.LoadedTracks?.FirstOrDefault();
+          
+            if (track == null) 
+            {
+                return $"Error loading local track for {musicFile.FullName}";
+            }
+
+            track.info.title = musicFile.Name;
+
+            if (lava.IsPlaying)
+            {
+                this.queuedTracks.Enqueue(track);
+                return $"Local track {musicFile.Name} has been queued";
+            }
+
+            var botChannel = context.Guild.CurrentUser.VoiceChannel;
+
+            if (botChannel == null || botChannel.Id != commandUserVoice.Id)
+            {
+                await commandUserVoice.ConnectAsync(true, true, true, true);
+            }
+
+            await this.lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = track.encoded});
+            return $"Loading local track {musicFile.Name}";
         }
 
         public async Task Query(SocketCommandContext context, string query)
@@ -235,16 +295,28 @@ namespace OuterHeavenLight.Music
         }
 
         private async Task Lava_OnLavaTrackStartEvent(TrackStartWebsocketEvent arg)
-        {
-            logger.LogInformation($"Now playing {arg.Track.info.title}. Command channel {arg.IssuedCommandChannelId}");
-          
-            await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Now playing track - {arg?.Track?.info?.title ?? "error"}");
+        { 
+            var title = arg.Track.info.title;
+
+            var isUnknown = arg.Track.info.title.ToLower().Contains("unknown");
+            if (isUnknown && 
+                Uri.TryCreate(arg.Track.info.identifier,UriKind.Absolute, out var uri) && uri != null && uri.IsFile)
+            {
+                title = uri.Segments.LastOrDefault() ?? "";
+                if(this.lava.ActiveTrack !=null)
+                this.lava.ActiveTrack.info.title = title;
+            }
+
+            logger.LogInformation($"Now playing {title}. Command channel {arg.IssuedCommandChannelId}");
+
+            await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Now playing track - {title ?? "error"}");
+           
         }
 
         private async Task Lava_OnLavaTrackEndEvent(TrackEndWebsocketEvent arg)
         {
             logger.LogInformation($"Track {arg.Track?.info?.title} has ended. Reason [{arg.Reason}]");
-         
+           
             //handled in skip command logic
             if (arg.Reason == LavalinkTrackEndReason.replaced)
             { 
