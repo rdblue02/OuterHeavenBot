@@ -1,21 +1,13 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord.WebSocket;
-using Microsoft.Extensions.Logging;
-using System;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Websocket.Client;
-using Newtonsoft.Json.Linq;
-using System.Collections.Concurrent;
 using OuterHeavenLight.Entities;
 using OuterHeavenLight.Entities.Response.Websocket;
 using OuterHeavenLight.Entities.Request;
 using OuterHeavenLight.Entities.Response.Rest;
-using Microsoft.VisualBasic;
-using System.Reactive;
-using OuterHeavenLight;
 using OuterHeavenLight.Music;
 using OuterHeaven.LavalinkLight;
 
@@ -28,11 +20,10 @@ namespace OuterHeavenLight.LavaConnection
         public event Func<TrackExceptionWebsocketEvent, Task>? OnLavaTrackExceptionEvent;
         public event Func<TrackStuckWebsocketEvent, Task>? OnLavaTrackStuckEvent;
         public event Func<ClosedWebsocketEvent, Task>? OnLavaConnectionClosed;
-        public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate; 
-        public bool IsPlaying => player?.track != null &&  IsConnected;
-        public bool IsConnected => voiceState.VoiceLoaded();
-        public LavaTrack? ActiveTrack => player?.track;
+        public event Func<PlayerUpdateWebsocketMessage, Task>? OnPlayerUpdate;  
 
+        public bool IsConnected => voiceState.VoiceLoaded();
+        
         private ILogger<Lava> logger;
         private LavaStatsWebsocketMessage stats;
         private WebsocketClient? websocket;
@@ -42,7 +33,7 @@ namespace OuterHeavenLight.LavaConnection
         private LavalinkRestNode restNode;
         private VoiceState voiceState = new VoiceState();
         private LavaPlayer? player;
-        private LavaFileCache? fileCache;  
+        private LavaFileCache fileCache;
         private DateTime timeOfLastActivity = DateTime.UtcNow;
         private TimeSpan idleDisconnectWait = TimeSpan.FromMinutes(2);
         private TimeSpan timeout = TimeSpan.FromSeconds(30);
@@ -52,20 +43,17 @@ namespace OuterHeavenLight.LavaConnection
                     MusicDiscordClient client,
                     AppSettings lavaSettings,
                     LavalinkEndpointProvider lavalinkEndpointProvider,
-                    LavalinkRestNode lavalinkRest)
+                    LavalinkRestNode lavalinkRest,
+                    LavaFileCache fileCache)
         {
             this.logger = logger;
             this.client = client;
             this.settings = lavaSettings;
             this.endpointProvider = lavalinkEndpointProvider;
-            this.restNode = lavalinkRest;
-            this.fileCache = LavaFileCache.Read();
+            this.restNode = lavalinkRest; 
             this.stats = new LavaStatsWebsocketMessage();
-         
-            if (!string.IsNullOrWhiteSpace(fileCache?.LavalinkSessionId))
-            {
-                this.voiceState.LavaSessionId = fileCache.LavalinkSessionId;
-            }
+            this.fileCache = fileCache; 
+            this.voiceState.LavaSessionId = this.fileCache.LavalinkSessionId;
 
             this.client.VoiceServerUpdated += DiscordClient_VoiceServerUpdated;
             this.client.UserVoiceStateUpdated += DiscordClient_UserVoiceStateUpdated;
@@ -81,7 +69,7 @@ namespace OuterHeavenLight.LavaConnection
             OnPlayerUpdate += (update) =>
             { 
                 if (update.state.position > 0 && update.state.connected)
-                { 
+                {  
                     timeOfLastActivity = DateTime.UtcNow;
                 }
 
@@ -94,38 +82,40 @@ namespace OuterHeavenLight.LavaConnection
         public async Task Initialize()
         {
             logger.LogInformation("Initializing lavalink");
-            voiceState = new VoiceState();
-
+           
             var startTasks = new List<Task>()
             {
-               client.LoginAsync(TokenType.Bot, settings.OuterHeavenBotSettings.DiscordToken),
+               client.LoginAsync(TokenType.Bot, settings?.OuterHeavenBotSettings?.DiscordToken ?? 
+                                                throw new ArgumentNullException(settings?.OuterHeavenBotSettings?.DiscordToken)),
+               
                client.SetGameAsync("|~h for more info", null, ActivityType.Playing),
                client.StartAsync()
             };
 
             await Task.WhenAll(startTasks);
        
+            if(!string.IsNullOrWhiteSpace(fileCache.GuildId) &&
+               !string.IsNullOrWhiteSpace(fileCache.ChannelId) &&
+               !string.IsNullOrWhiteSpace(fileCache.LavalinkSessionId) &&
+               ulong.TryParse(fileCache.ChannelId, out var channelIdAsLong))
+            {
+                var channel = client.GetChannel(channelIdAsLong) as IVoiceChannel;
+                this.player = await restNode.GetPlayerOrDefaultAsync(fileCache.GuildId, fileCache.LavalinkSessionId);
+            }
+
             await Task.Run(async () =>
             {
                 await CheckForIdleDisconnect(default);
             });  
         }
 
-        async Task CheckForIdleDisconnect(CancellationToken cancellationToken)
+        public async Task<bool> IsPlaying()
         {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                if (this.IsConnected && 
-                    DateTime.UtcNow - timeOfLastActivity > idleDisconnectWait)
-                {
-                    logger.LogInformation($"Idle timer has been reached. Disconnecting from channel id [{voiceState.ChannelId}] in guid id [{voiceState.GuildId}]");
-                    await DisconnectFromChannel();
-                }
+            var track = await this.GetCurrentTrack();
 
-                await Task.Delay(500);
-            }
+            return track?.info != null && track.info.position < track.info.length;
         }
-         
+
         public async Task<LavaPlayer?> PauseResume()
         {
             if(this.player == null)
@@ -215,12 +205,30 @@ namespace OuterHeavenLight.LavaConnection
                     await channel.DisconnectAsync();
                 }
 
-                player = null;
+                player = null; 
             }
             else
             {
                 logger.LogError($"Unable to disconnect from channel. Current voice state {this.voiceState}");
             }
+        }
+       
+        public void Dispose()
+        {
+            websocket?.Dispose();
+        }
+
+        public async Task<LavaTrack?> GetCurrentTrack()
+        {
+            if (!this.IsConnected)
+            {
+                logger.LogError("Unable to search for track while not connected");
+                return null;
+            }
+
+            var player = await restNode.GetPlayerOrDefaultAsync(this.voiceState.GuildId, this.voiceState.LavaSessionId);
+          
+            return player?.track;
         }
 
         private async Task StartWebsocket()
@@ -387,10 +395,9 @@ namespace OuterHeavenLight.LavaConnection
                 voiceState.GuildId = ""; 
             }
             
-            fileCache.ChannelId = voiceState.ChannelId;
-            fileCache.GuildId = voiceState.GuildId;
- 
-            fileCache.Save();
+            this.fileCache.ChannelId = voiceState.ChannelId;
+            this.fileCache.GuildId = voiceState.GuildId; 
+            this.fileCache.Save();
 
             return Task.CompletedTask;
         }
@@ -402,13 +409,17 @@ namespace OuterHeavenLight.LavaConnection
                                    $"Server token from {voiceState.Token} to {server.Token}\n" +
                                    $"Server endpoint from {voiceState.Endpoint} to {server.Endpoint}");
 
-            voiceState.Token = server.Token;
-            voiceState.Endpoint = server.Endpoint;
-                         this.timeOfLastActivity = DateTime.UtcNow;
+            this.voiceState.Token = server.Token;
+            this.voiceState.Endpoint = server.Endpoint;
+            this.timeOfLastActivity = DateTime.UtcNow;
+
+            this.fileCache.DiscroderServerToken = server.Token;
+            this.fileCache.DiscordServerEndpoint = server.Endpoint;
+            this.fileCache.Save();
             return Task.CompletedTask;
         }
 
-        async Task<bool> CheckConnection(TimeSpan timeout, CancellationToken cancellationToken = default)
+          private async Task<bool> CheckConnection(TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             var time = DateTime.UtcNow.Add(timeout);
             while (!IsConnected && 
@@ -421,7 +432,7 @@ namespace OuterHeavenLight.LavaConnection
             logger.LogDebug($"Time waited for connection update {DateTime.UtcNow - time}");
             return IsConnected;
         }
-
+      
         private Task RunActionAsync(Func<Task> action, CancellationToken cancellationToken = default)
         {
             return Task.Run(async () =>
@@ -430,9 +441,22 @@ namespace OuterHeavenLight.LavaConnection
               }, cancellationToken);
         }
 
-        public void Dispose()
+       
+
+        async Task CheckForIdleDisconnect(CancellationToken cancellationToken)
         {
-            websocket?.Dispose();
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (this.IsConnected &&
+                    DateTime.UtcNow - timeOfLastActivity > idleDisconnectWait)
+                {
+                    logger.LogInformation($"Idle timer has been reached. Disconnecting from channel id [{voiceState.ChannelId}] in guid id [{voiceState.GuildId}]");
+                    await DisconnectFromChannel();
+                }
+
+                await Task.Delay(500);
+            }
         }
+
     }
 }

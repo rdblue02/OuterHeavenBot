@@ -26,8 +26,7 @@ namespace OuterHeavenLight
             this.commandService = commandService;
             this.serviceProvider = serviceProvider; 
             this.commands = []; 
-                 commandService.Log += logger.LogMessage;
-
+            commandService.Log += logger.LogMessage; 
         }
  
         public async Task InstallCommandsAsync(List<Type> types)
@@ -52,9 +51,10 @@ namespace OuterHeavenLight
 
         public virtual bool ShouldExecuteCommand(TDiscordClient discordSocketClient, SocketMessage message)
         {
-             if (string.IsNullOrWhiteSpace(message?.CleanContent) || 
-                !message.CleanContent.StartsWith(Prefix) ||
-                 message.Author.IsBot) 
+             if (string.IsNullOrWhiteSpace(message?.Content) || 
+                !message.Content.StartsWith(Prefix) ||
+                 message.Author.IsBot && 
+                 discordSocketClient.GetType() == typeof(TDiscordClient)) 
                 return false;
                          
             var commandInfo = GetCommandInfoFromMessage(message.CleanContent);

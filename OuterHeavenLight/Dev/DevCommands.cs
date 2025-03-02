@@ -26,36 +26,52 @@ namespace OuterHeavenLight.Dev
         [Command("logs", RunMode = RunMode.Async)]
         public async Task GetLogs()
         {
-            var logFiles = GetLogFiles();
-
-            if (logFiles.Any())
+            try
             {
+                var logFiles = GetLogFiles();
+               
+                if (logFiles.Count == 0)
+                {
+                    await ReplyAsync("No log files found.");
+                    return;
+                }
+
                 await SendApplicationLogFiles(logFiles);
             }
-            else
+            catch (Exception ex)
             {
-                await ReplyAsync("Error zipping log files");
-            }
-             
-        }
+                await ReplyAsync($"Error zipping log files\n{ex}");
+            } 
+         }
+
         private List<FileInfo?> GetLogFiles()
         {
-
-            var parentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory()).Parent;
+            var logFiles = new List<FileInfo?>();
+            var parentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory())?.Parent ?? new DirectoryInfo(Directory.GetCurrentDirectory());
          
             var lavalog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)
                                           .FirstOrDefault()?
-                                          .GetFiles(lavalinkLogName)
-                                          .OrderByDescending(x => x.CreationTime)
+                                          .GetFiles(lavalinkLogName)?
+                                          .OrderByDescending(x => x.CreationTime)?
                                           .FirstOrDefault();
 
-            var applog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)
+            var applog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)?
                                          .FirstOrDefault()?
-                                         .GetFiles(appLogName)
-                                         .OrderByDescending(x => x.CreationTime)
+                                         .GetFiles(appLogName)?
+                                         .OrderByDescending(x => x.CreationTime)?
                                          .FirstOrDefault();
 
-            return new List<FileInfo?> { lavalog, applog }.Where(x => x != null).ToList();
+            if (lavalog != null) 
+            {
+                logFiles.Add(lavalog);
+            }
+
+            if (applog != null) 
+            {
+               logFiles.Add(applog);
+            }
+
+            return logFiles;
         }
  
         private async Task SendApplicationLogFiles(List<FileInfo?> files) 

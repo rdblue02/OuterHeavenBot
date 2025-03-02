@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-OuterHeavenLight-d22dcec4-7603-4abc-9165-d51b8c798235</UserSecretsId>
-	  <Version>1.0.5</Version>
+	  <Version>1.0.7</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,5 +36,17 @@
 
   <ItemGroup>
     <Folder Include="music\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Lavalink\application.yml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Lavalink\Lavalink.jar">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Lavalink\plugins\youtube-plugin-1.11.4.jar">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

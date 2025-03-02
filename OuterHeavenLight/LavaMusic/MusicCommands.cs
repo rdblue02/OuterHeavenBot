@@ -64,7 +64,7 @@ namespace OuterHeavenLight.Music
         {
             try
             {
-                var trackInfo = musicService.GetCurrentTrackInfo();
+                var trackInfo = await musicService.GetCurrentTrackInfo();
                 if (trackInfo == null)
                 {
                     await ReplyAsync("Nothing to skip");
@@ -119,7 +119,7 @@ namespace OuterHeavenLight.Music
         {
             try
             {
-                var message = musicService.GetQeueueInfo();
+                var message = await musicService.GetQeueueInfo();
 
                 await ReplyAsync(message);
             }
@@ -136,14 +136,16 @@ namespace OuterHeavenLight.Music
         {
             try
             {
-                var trackInfo = musicService.GetCurrentTrackInfo();
+                var trackInfo =await musicService.GetCurrentTrackInfo();
                 if (trackInfo == null)
                 {
                     await ReplyAsync("Nothing is playing. Use ~p to play a track!");
                 }
                 else
                 {
-                    await ReplyAsync($"Current track title [{trackInfo.title}]");
+                    var duration = trackInfo.length - trackInfo.position > 0 ? trackInfo.length - trackInfo.position : 0;
+
+                    await ReplyAsync($"Current track\nTitle - {trackInfo.title}\nAuthor - {trackInfo.author}\nDuration - {TimeSpan.FromMilliseconds(duration):hh\\:mm\\:ss}");
                 }
             }
             catch (Exception e)

@@ -43,14 +43,15 @@ namespace OuterHeavenLight.Music
             client.MessageReceived += async (messageParam) =>   
             {
                var message = messageParam as SocketUserMessage;
+                if (message == null)  return;
 
-                if (message != null && musicCommandHandler.ShouldExecuteCommand(client, messageParam))
+                if (musicCommandHandler.ShouldExecuteCommand(client, messageParam))
                 {
                     await musicCommandHandler.HandleCommandAsync(client, message);
                     return;
                 }
              
-                if (message != null && devCommandHandler.ShouldExecuteCommand(client, messageParam))
+                if (devCommandHandler.ShouldExecuteCommand(client, messageParam))
                 {
                     await devCommandHandler.HandleCommandAsync(client, message);
                     return;
@@ -69,24 +70,22 @@ namespace OuterHeavenLight.Music
 
         }
 
-        public LavaTrackInfo? GetCurrentTrackInfo()
+        public async Task<LavaTrackInfo?> GetCurrentTrackInfo()
         {
-            if (!lava.IsPlaying)
-            {
-                logger.LogInformation($"Track info requested for player when {nameof(lava.IsPlaying)} set to {lava.IsPlaying}");
-                return null;
-            }
+            var currentTrack = await lava.GetCurrentTrack();
 
-            return lava?.ActiveTrack?.info;
+            return currentTrack?.info;
         }
 
-        public string GetQeueueInfo()
-        { 
+        public async Task<string> GetQeueueInfo()
+        {    
             var tracks = new List<LavaTrack>();
-
-            if (lava.ActiveTrack != null)
+          
+            var currentTrack = await lava.GetCurrentTrack();
+         
+            if (currentTrack != null)
             {
-                tracks.Add(lava.ActiveTrack);
+                tracks.Add(currentTrack);
             }
 
             tracks.AddRange(queuedTracks.ToList());
@@ -126,7 +125,8 @@ namespace OuterHeavenLight.Music
        
         public async Task Skip()
         {
-            if (!lava.IsPlaying)
+            var isPlaying = await lava.IsPlaying();
+            if (!isPlaying)
             {
                 logger.LogError("Bot is not currently playing");
                 return;
@@ -144,7 +144,8 @@ namespace OuterHeavenLight.Music
 
         public async Task<string> PauseResume()
         {
-            if (!lava.IsPlaying)
+            var isPlaying = await lava.IsPlaying();
+            if (!isPlaying)
             {
                 logger.LogError("Bot is not currently playing");
                 return "Bot is not currently playing";
@@ -209,8 +210,8 @@ namespace OuterHeavenLight.Music
             }
 
             track.info.title = musicFile.Name;
-
-            if (lava.IsPlaying)
+            var isPlaying = await lava.IsPlaying();
+            if (isPlaying)
             {
                 this.queuedTracks.Enqueue(track);
                 return $"Local track {musicFile.Name} has been queued";
@@ -270,8 +271,8 @@ namespace OuterHeavenLight.Music
             firstTrack.UserData = userData;
 
             logger.LogInformation($"Found track {firstTrack.info.title} from source {firstTrack.info.uri}");
-
-            if (queuedTracks.IsEmpty && !lava.IsPlaying)
+            var isPlaying = await lava.IsPlaying();
+            if (queuedTracks.IsEmpty && !isPlaying)
             {
                 logger.LogInformation($"Queue is empty. Processing {result.LoadType}.");
                 await lava.UpdatePlayer(new UpdatePlayerTrack() { encoded = firstTrack.encoded, userData = userData });
@@ -302,9 +303,8 @@ namespace OuterHeavenLight.Music
             if (isUnknown && 
                 Uri.TryCreate(arg.Track.info.identifier,UriKind.Absolute, out var uri) && uri != null && uri.IsFile)
             {
-                title = uri.Segments.LastOrDefault() ?? "";
-                if(this.lava.ActiveTrack !=null)
-                this.lava.ActiveTrack.info.title = title;
+
+                title = uri.Segments.LastOrDefault() ?? ""; 
             }
 
             logger.LogInformation($"Now playing {title}. Command channel {arg.IssuedCommandChannelId}");
@@ -315,7 +315,9 @@ namespace OuterHeavenLight.Music
 
         private async Task Lava_OnLavaTrackEndEvent(TrackEndWebsocketEvent arg)
         {
-            logger.LogInformation($"Track {arg.Track?.info?.title} has ended. Reason [{arg.Reason}]");
+            var isUnknown = arg.Track.info.title.ToLower().Contains("unknown");
+
+            logger.LogInformation($"Track {(isUnknown ? arg.Track.info.identifier : arg.Track?.info?.title)} has ended. Reason [{arg.Reason}]");
            
             //handled in skip command logic
             if (arg.Reason == LavalinkTrackEndReason.replaced)
@@ -325,7 +327,7 @@ namespace OuterHeavenLight.Music
 
             if (arg.Reason == LavalinkTrackEndReason.invalid)
             {
-                await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Error playing track title {arg?.Track?.info?.title ?? "error"}");
+                await SendMessageToExecutingCommandChannel(arg.Track?.UserData, $"Error playing track title {(isUnknown ? arg?.Track?.info.identifier : arg.Track?.info?.title ?? "error")}");
                 return;
             }
 

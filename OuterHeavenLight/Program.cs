@@ -41,12 +41,19 @@ namespace OuterHeavenLight
                     x.AddConsole();
                 });
 
+                //todo - convert to options pattern
+                var fileCache = new LavaFileCache();
+                fileCache.Load();
+
+                builder.Services.AddSingleton(fileCache);
                 builder.Services.AddSingleton<CommandService>();
+            
                 //dev
                 builder.Services.AddSingleton<DevCommandHandler>();
                 builder.Services.AddSingleton<DevCommands>();
 
                 //lava
+                
                 builder.Services.AddSingleton<LavalinkEndpointProvider>();
                 builder.Services.AddSingleton<LavalinkRestNode>();
                 builder.Services.AddSingleton<Lava>();
