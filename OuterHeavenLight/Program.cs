@@ -10,6 +10,7 @@ using OuterHeavenLight.Clippies;
 using OuterHeavenLight.Dev;
 using OuterHeavenLight.LavaConnection;
 using OuterHeavenLight.Music;
+using OuterHeavenLight.Utilities;
 using System.Reflection;
 
 namespace OuterHeavenLight

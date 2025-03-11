@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenLight.Core;
 using OuterHeavenLight.Music;
 using System.Net.Sockets;
 

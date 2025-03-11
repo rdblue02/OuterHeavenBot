@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using OuterHeavenLight.Clippies;
 using OuterHeavenLight.Constants;
+using OuterHeavenLight.Core;
 namespace OuterHeavenLight.Clippies
 {
     public class ClippieCommandHandler : CommandHandlerBase<ClippieDiscordClient>

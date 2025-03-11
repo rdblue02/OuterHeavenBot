@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OuterHeavenLight
+namespace OuterHeavenLight.Core
 {
     public abstract class CommandHandlerBase<TDiscordClient> where TDiscordClient : DiscordSocketClient
     {
@@ -16,19 +16,19 @@ namespace OuterHeavenLight
         private ILogger logger;
         private readonly CommandService commandService;
         private readonly IServiceProvider serviceProvider;
-        private readonly List<CommandInfo> commands; 
-         
-        public CommandHandlerBase(ILogger logger, 
-                                  CommandService commandService, 
+        private readonly List<CommandInfo> commands;
+        private Type clientType;
+        public CommandHandlerBase(ILogger logger,
+                                  CommandService commandService,
                                   IServiceProvider serviceProvider)
         {
             this.logger = logger;
             this.commandService = commandService;
-            this.serviceProvider = serviceProvider; 
-            this.commands = []; 
-            commandService.Log += logger.LogMessage; 
+            this.serviceProvider = serviceProvider;
+            commands = [];
+            commandService.Log += logger.LogMessage;
         }
- 
+
         public async Task InstallCommandsAsync(List<Type> types)
         {
             foreach (var type in types)
@@ -36,7 +36,7 @@ namespace OuterHeavenLight
                 var module = await commandService.AddModuleAsync(type, serviceProvider);
                 foreach (var command in module.Commands)
                 {
-                    if (!this.commands.Contains(command))
+                    if (!commands.Contains(command))
                     {
                         logger.LogInformation($"Adding command {command.Name} for {type.Name}");
                         commands.Add(command);
@@ -46,17 +46,17 @@ namespace OuterHeavenLight
                         throw new InvalidOperationException($"Command {command.Name} has already been registered");
                     }
                 }
-            } 
-        } 
+            }
+        }
 
         public virtual bool ShouldExecuteCommand(TDiscordClient discordSocketClient, SocketMessage message)
         {
-             if (string.IsNullOrWhiteSpace(message?.Content) || 
-                !message.Content.StartsWith(Prefix) ||
-                 message.Author.IsBot && 
-                 discordSocketClient.GetType() == typeof(TDiscordClient)) 
+            if (string.IsNullOrWhiteSpace(message?.Content) ||
+               !message.Content.StartsWith(Prefix) ||
+                message.Author.IsBot &&
+                discordSocketClient.GetType() == typeof(TDiscordClient))
                 return false;
-                         
+
             var commandInfo = GetCommandInfoFromMessage(message.CleanContent);
             if (commandInfo == null)
             {
@@ -70,7 +70,7 @@ namespace OuterHeavenLight
         public async Task HandleCommandAsync(TDiscordClient discordSocketClient, SocketMessage message)
         {
             try
-            {     
+            {
                 var context = new SocketCommandContext(discordSocketClient, message as SocketUserMessage);
 
                 logger.LogInformation($"{discordSocketClient?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");

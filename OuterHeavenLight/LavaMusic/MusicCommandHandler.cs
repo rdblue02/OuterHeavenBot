@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using OuterHeavenLight.Clippies;
 using OuterHeavenLight.Constants;
+using OuterHeavenLight.Core;
 using OuterHeavenLight.Extensions;
 
 namespace OuterHeavenLight.Music

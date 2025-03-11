@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OuterHeavenLight
+namespace OuterHeavenLight.Utilities
 {
     using System;
     using System.Runtime.InteropServices;
@@ -18,18 +18,18 @@ namespace OuterHeavenLight
         const int STD_INPUT_HANDLE = -10;
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        static extern IntPtr GetStdHandle(int nStdHandle);
+        static extern nint GetStdHandle(int nStdHandle);
 
         [DllImport("kernel32.dll")]
-        static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+        static extern bool GetConsoleMode(nint hConsoleHandle, out uint lpMode);
 
         [DllImport("kernel32.dll")]
-        static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+        static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
 
         internal static bool Disable()
         {
 
-            IntPtr consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
+            nint consoleHandle = GetStdHandle(STD_INPUT_HANDLE);
 
             // get current console mode
             uint consoleMode;
