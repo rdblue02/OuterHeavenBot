@@ -35,8 +35,7 @@ namespace OuterHeavenLight.LavaConnection
         private LavaPlayer? player;
         private LavaFileCache fileCache;
         private DateTime timeOfLastActivity = DateTime.UtcNow;
-        private TimeSpan idleDisconnectWait = TimeSpan.FromMinutes(2);
-        private TimeSpan timeout = TimeSpan.FromSeconds(30);
+        private TimeSpan idleDisconnectWait = TimeSpan.FromMinutes(2);       
         private bool isReconnected = false;
 
         public Lava(ILogger<Lava> logger,

@@ -14,15 +14,5 @@ namespace OuterHeavenLight.Clippies
         Connecting,
         Disconnecting,
         Disconnected
-    }
-    public enum MusicBotPlayerState
-    {
-        Available,
-        Playing,
-        Paused,
-        Stopped,
-        Connecting,
-        Disconnecting,
-        Disconnected
-    }   
+    } 
 }

@@ -41,9 +41,7 @@ namespace OuterHeavenLight.Clippies
             };
 
             discordClient.Disconnected += (err) =>
-            {
-                this.clippliePlayerState = ClippliePlayerState.Disconnected;
-                logger.LogError(err?.ToString() ?? "");
+            {  
                 return Task.CompletedTask;
             };
         }

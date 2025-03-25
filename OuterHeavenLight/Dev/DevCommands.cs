@@ -45,33 +45,33 @@ namespace OuterHeavenLight.Dev
          }
 
         private List<FileInfo?> GetLogFiles()
-        {
-            var logFiles = new List<FileInfo?>();
+        { 
             var parentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory())?.Parent ?? new DirectoryInfo(Directory.GetCurrentDirectory());
-         
-            var lavalog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)
-                                          .FirstOrDefault()?
-                                          .GetFiles(lavalinkLogName)?
-                                          .OrderByDescending(x => x.CreationTime)?
-                                          .FirstOrDefault();
 
-            var applog = parentDirectory?.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)?
-                                         .FirstOrDefault()?
-                                         .GetFiles(appLogName)?
-                                         .OrderByDescending(x => x.CreationTime)?
-                                         .FirstOrDefault();
+            var logDirectory = parentDirectory.GetDirectories(appsettings.AppLogDirectory, SearchOption.AllDirectories)
+                                              .FirstOrDefault();
+            if(logDirectory == null)
+            {
+                logger.LogError($"Cannot find directory {appsettings.AppLogDirectory}");
+                return [];
+            }
 
+            var logFiles = logDirectory.GetFiles().OrderByDescending(x => x.CreationTime); 
+            var lavalog =  logFiles.FirstOrDefault(x => string.Equals(lavalinkLogName, x?.Name,StringComparison.OrdinalIgnoreCase));
+            var applog = logFiles.FirstOrDefault(x => string.Equals(appLogName, x?.Name, StringComparison.OrdinalIgnoreCase));
+
+            var logsToSend = new List<FileInfo?>();
             if (lavalog != null) 
             {
-                logFiles.Add(lavalog);
+                logsToSend.Add(lavalog);
             }
 
             if (applog != null) 
             {
-               logFiles.Add(applog);
+                logsToSend.Add(applog);
             }
 
-            return logFiles;
+            return logsToSend;
         }
  
         private async Task SendApplicationLogFiles(List<FileInfo?> files) 
