@@ -10,5 +10,6 @@ namespace OuterHeavenLight.Constants
     {
         public const string Clippies = "CLIPPIE_COMMANDS";
         public const string Music = "MUSIC_COMMANDS";
+        public const string Dev = "DEV_COMMANDS";
     }
 }

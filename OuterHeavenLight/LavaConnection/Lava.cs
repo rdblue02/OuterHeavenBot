@@ -33,7 +33,7 @@ namespace OuterHeavenLight.LavaConnection
         private LavalinkRestNode restNode;
         private VoiceState voiceState = new VoiceState();
         private LavaPlayer? player;
-        private LavaFileCache fileCache;
+      //  private LavaFileCache fileCache;
         private DateTime timeOfLastActivity = DateTime.UtcNow;
         private TimeSpan idleDisconnectWait = TimeSpan.FromMinutes(2);       
         private bool isReconnected = false;
@@ -42,8 +42,9 @@ namespace OuterHeavenLight.LavaConnection
                     MusicDiscordClient client,
                     AppSettings lavaSettings,
                     LavalinkEndpointProvider lavalinkEndpointProvider,
-                    LavalinkRestNode lavalinkRest,
-                    LavaFileCache fileCache)
+                    LavalinkRestNode lavalinkRest//,
+                    //LavaFileCache fileCache
+            )
         {
             this.logger = logger;
             this.client = client;
@@ -51,8 +52,8 @@ namespace OuterHeavenLight.LavaConnection
             this.endpointProvider = lavalinkEndpointProvider;
             this.restNode = lavalinkRest; 
             this.stats = new LavaStatsWebsocketMessage();
-            this.fileCache = fileCache; 
-            this.voiceState.LavaSessionId = this.fileCache.LavalinkSessionId;
+           // this.fileCache = fileCache; 
+        //    this.voiceState.LavaSessionId = this.fileCache.LavalinkSessionId;
 
             this.client.VoiceServerUpdated += DiscordClient_VoiceServerUpdated;
             this.client.UserVoiceStateUpdated += DiscordClient_UserVoiceStateUpdated;
@@ -93,14 +94,14 @@ namespace OuterHeavenLight.LavaConnection
 
             await Task.WhenAll(startTasks);
        
-            if(!string.IsNullOrWhiteSpace(fileCache.GuildId) &&
-               !string.IsNullOrWhiteSpace(fileCache.ChannelId) &&
-               !string.IsNullOrWhiteSpace(fileCache.LavalinkSessionId) &&
-               ulong.TryParse(fileCache.ChannelId, out var channelIdAsLong))
-            {
-                var channel = client.GetChannel(channelIdAsLong) as IVoiceChannel;
-                this.player = await restNode.GetPlayerOrDefaultAsync(fileCache.GuildId, fileCache.LavalinkSessionId);
-            }
+            //if(!string.IsNullOrWhiteSpace(fileCache.GuildId) &&
+            //   !string.IsNullOrWhiteSpace(fileCache.ChannelId) &&
+            //   !string.IsNullOrWhiteSpace(fileCache.LavalinkSessionId) &&
+            //   ulong.TryParse(fileCache.ChannelId, out var channelIdAsLong))
+            //{
+            //    var channel = client.GetChannel(channelIdAsLong) as IVoiceChannel;
+            //    this.player = await restNode.GetPlayerOrDefaultAsync(fileCache.GuildId, fileCache.LavalinkSessionId);
+            //}
 
             await Task.Run(async () =>
             {
@@ -394,9 +395,9 @@ namespace OuterHeavenLight.LavaConnection
                 voiceState.GuildId = ""; 
             }
             
-            this.fileCache.ChannelId = voiceState.ChannelId;
-            this.fileCache.GuildId = voiceState.GuildId; 
-            this.fileCache.Save();
+            //this.fileCache.ChannelId = voiceState.ChannelId;
+            //this.fileCache.GuildId = voiceState.GuildId; 
+            //this.fileCache.Save();
 
             return Task.CompletedTask;
         }
@@ -412,9 +413,9 @@ namespace OuterHeavenLight.LavaConnection
             this.voiceState.Endpoint = server.Endpoint;
             this.timeOfLastActivity = DateTime.UtcNow;
 
-            this.fileCache.DiscroderServerToken = server.Token;
-            this.fileCache.DiscordServerEndpoint = server.Endpoint;
-            this.fileCache.Save();
+            //this.fileCache.DiscroderServerToken = server.Token;
+            //this.fileCache.DiscordServerEndpoint = server.Endpoint;
+            //this.fileCache.Save();
             return Task.CompletedTask;
         }
 

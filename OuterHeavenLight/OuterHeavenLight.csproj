@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-OuterHeavenLight-d22dcec4-7603-4abc-9165-d51b8c798235</UserSecretsId>
-	  <Version>1.0.8</Version>
+	  <Version>1.0.9</Version>
   </PropertyGroup>
 
   <ItemGroup>

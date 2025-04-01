@@ -25,9 +25,7 @@ namespace OuterHeavenBot.Test
            //var canExecute = handler.ShouldExecuteCommand(client.Object, userMessage);
 
            // Assert.IsTrue(canExecute);
-
-            var time = DateTime.Now.TimeOfDay;
-           var timeS = time.ToString("HH:mm:ss");
+            
         }
     }
  

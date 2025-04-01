@@ -8,6 +8,7 @@ using log4net.Repository.Hierarchy;
 using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Clippies;
 using OuterHeavenLight.Dev;
+using OuterHeavenLight.Extensions;
 using OuterHeavenLight.LavaConnection;
 using OuterHeavenLight.Music;
 using OuterHeavenLight.Utilities;
@@ -42,35 +43,15 @@ namespace OuterHeavenLight
                     x.AddConsole();
                 });
 
-                //todo - convert to options pattern
-                var fileCache = new LavaFileCache();
-                fileCache.Load();
+                ////todo - convert to options pattern
+                //var fileCache = new LavaFileCache();
+                //fileCache.Load();
 
-                builder.Services.AddSingleton(fileCache);
-                builder.Services.AddSingleton<CommandService>();
-            
-                //dev
-                builder.Services.AddSingleton<DevCommandHandler>();
-                builder.Services.AddSingleton<DevCommands>();
-
-                //lava
-                
-                builder.Services.AddSingleton<LavalinkEndpointProvider>();
-                builder.Services.AddSingleton<LavalinkRestNode>();
-                builder.Services.AddSingleton<Lava>();
-
-                builder.Services.AddSingleton<MusicCommands>();
-                builder.Services.AddSingleton<MusicCommandHandler>();
-                builder.Services.AddSingleton<MusicDiscordClient>();
-                builder.Services.AddSingleton<MusicService>();
-                builder.Services.AddHostedService<MusicWorker>();
-
-                //Clippie types 
-                builder.Services.AddSingleton<ClippieCommands>();
-                builder.Services.AddSingleton<ClippieCommandHandler>();
-                builder.Services.AddSingleton<ClippieDiscordClient>();
-                builder.Services.AddSingleton<ClippieService>();
-                builder.Services.AddHostedService<ClippieWorker>();
+                //builder.Services.AddSingleton(fileCache); 
+                builder.Services.AddDevUtilities();
+                builder.Services.AddLava();
+                builder.Services.AddMusic();
+                builder.Services.AddClips();
                  
                 var host = builder.Build();
                 LogManager.GetLogger(typeof(Program)).Info("Starting application logger");

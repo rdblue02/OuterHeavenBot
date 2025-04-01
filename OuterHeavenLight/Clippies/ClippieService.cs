@@ -3,6 +3,8 @@ using Discord;
 using Discord.Audio;
 using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeavenLight.Constants;
+using OuterHeavenLight.Core;
 using OuterHeavenLight.Dev;
 using OuterHeavenLight.Music;
 using System.Threading.Channels;
@@ -13,17 +15,16 @@ namespace OuterHeavenLight.Clippies
     {
         ILogger logger;
         ClippieDiscordClient discordClient;
-        ClippieCommandHandler clippieCommandHandler;
+        CommandHandler clippieCommandHandler;
         public ClippliePlayerState clippliePlayerState { get; private set; } = ClippliePlayerState.Disconnected;
 
         public ClippieService(ILogger<ClippieService> logger,
                               ClippieDiscordClient client,
-                              ClippieCommandHandler clippieCommandHandler,
-                              DevCommandHandler devCommandHandler)
+                              CommandHandler commandHandler)
         {
             this.logger = logger;
-            this.discordClient = client;
-            this.clippieCommandHandler = clippieCommandHandler;
+            this.discordClient = client; 
+            this.clippieCommandHandler = commandHandler;
 
             discordClient.Ready += () =>
             {
@@ -32,12 +33,8 @@ namespace OuterHeavenLight.Clippies
             };
 
             discordClient.MessageReceived += async (messageParam) =>
-            { 
-
-                if (messageParam is SocketUserMessage message && clippieCommandHandler.ShouldExecuteCommand(client, message))
-                {
-                    await clippieCommandHandler.HandleCommandAsync(client, message); 
-                } 
+            {
+                await clippieCommandHandler.HandleCommandAsync(CommandGroupName.Clippies, client, messageParam);
             };
 
             discordClient.Disconnected += (err) =>
@@ -49,7 +46,7 @@ namespace OuterHeavenLight.Clippies
         public async Task InitializeAsync()
         {
             await this.discordClient.InitializeAsync();
-            await clippieCommandHandler.InstallCommandsAsync(new List<Type>() { (typeof(ClippieCommands)) });
+            await clippieCommandHandler.Initialize(new List<Type>() { (typeof(ClippieCommands)) });
         }
 
         public async Task PlayClippie(string contentRequested, SocketCommandContext context, CancellationToken cancellationToken = default)

@@ -6,9 +6,11 @@ using Discord;
 using System.IO.Compression;
 using OuterHeaven.LavalinkLight;
 using System.Runtime.Serialization;
+using OuterHeavenLight.Constants;
 
 namespace OuterHeavenLight.Dev
 {
+    [Name(CommandGroupName.Dev)]
     public class DevCommands : ModuleBase<SocketCommandContext>
     {
         ILogger<DevCommands> logger;

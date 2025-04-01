@@ -3,6 +3,8 @@ using Discord.Audio;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
+using OuterHeavenLight.Constants;
+using OuterHeavenLight.Core;
 using OuterHeavenLight.Dev;
 using OuterHeavenLight.Entities;
 using OuterHeavenLight.Entities.Request;
@@ -25,37 +27,23 @@ namespace OuterHeavenLight.Music
         Lava lava;
         ConcurrentQueue<LavaTrack> queuedTracks;
         MusicDiscordClient client;
-        MusicCommandHandler musicCommandHandler; 
-        DevCommandHandler devCommandHandler;
+        CommandHandler commandHandler; 
+ 
         
         public MusicService(ILogger<MusicService> logger,
                             Lava lava,
                             MusicDiscordClient client,
-                            MusicCommandHandler musicCommandHandler,
-                            DevCommandHandler devCommandHandler)
+                            CommandHandler commandHandler)
         {
             this.logger = logger;
             this.lava = lava;
             queuedTracks = new ConcurrentQueue<LavaTrack>();
-            this.client = client;
-            this.musicCommandHandler = musicCommandHandler;
-            this.devCommandHandler = devCommandHandler;
+            this.client = client; 
+            this.commandHandler = commandHandler;
             client.MessageReceived += async (messageParam) =>   
             {
-               var message = messageParam as SocketUserMessage;
-                if (message == null)  return;
-
-                if (musicCommandHandler.ShouldExecuteCommand(client, messageParam))
-                {
-                    await musicCommandHandler.HandleCommandAsync(client, message);
-                    return;
-                }
-             
-                if (devCommandHandler.ShouldExecuteCommand(client, messageParam))
-                {
-                    await devCommandHandler.HandleCommandAsync(client, message);
-                    return;
-                }              
+               var group = messageParam.Content.StartsWith("!") ? CommandGroupName.Dev : CommandGroupName.Music;
+               await commandHandler.HandleCommandAsync(group, client, messageParam);
             };
 
             this.lava.OnLavaTrackEndEvent += Lava_OnLavaTrackEndEvent;
@@ -65,8 +53,8 @@ namespace OuterHeavenLight.Music
         public async Task Initialize()
         {
             logger.LogInformation("Initializing music service");
-            await Task.WhenAll(musicCommandHandler.InstallCommandsAsync(new List<Type>() { typeof(MusicCommands) }),
-                     devCommandHandler.InstallCommandsAsync(new List<Type>() { typeof(DevCommands) }));
+            await commandHandler.Initialize(new List<Type>() { typeof(MusicCommands) });
+            await commandHandler.Initialize(new List<Type>() { typeof(DevCommands) });
 
         }
 
