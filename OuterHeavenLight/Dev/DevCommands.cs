@@ -13,8 +13,7 @@ namespace OuterHeavenLight.Dev
                            AppSettings appSettings,
                            DevService devService)
         {
-            this.logger = logger;
-            this.appsettings = appSettings;
+            this.logger = logger; 
             this.devService = devService;
         }
 
