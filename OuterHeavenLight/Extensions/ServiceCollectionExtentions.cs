@@ -20,7 +20,8 @@ namespace OuterHeavenLight.Extensions
             services.AddSingleton<CommandService>();
             services.AddSingleton<LavalinkEndpointProvider>();
             services.AddSingleton<LavalinkRestNode>();
-            services.AddSingleton<Lava>();
+            services.AddSingleton<Lava>(); 
+           
             return services;
         }
 
@@ -43,8 +44,12 @@ namespace OuterHeavenLight.Extensions
         }
 
         public static IServiceCollection AddDevUtilities(this IServiceCollection services)
-        { 
+        {
             services.AddSingleton<DevCommands>();
+            services.AddSingleton<DevService>();
+            services.AddSingleton<IDiscordFileSender,DiscordFileSender>();
+            services.AddSingleton<IFileHandler, FileHandler>();
+            services.AddSingleton<ISearch, Search>();
             return services;
         }
     }

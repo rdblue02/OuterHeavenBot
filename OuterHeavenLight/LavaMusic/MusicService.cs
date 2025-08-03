@@ -54,7 +54,7 @@ namespace OuterHeavenLight.Music
         {
             logger.LogInformation("Initializing music service");
             await commandHandler.Initialize(new List<Type>() { typeof(MusicCommands) });
-            await commandHandler.Initialize(new List<Type>() { typeof(DevCommands) });
+           await commandHandler.Initialize(new List<Type>() { typeof(DevCommands) });
 
         }
 
@@ -233,7 +233,7 @@ namespace OuterHeavenLight.Music
 
             if (result.LoadType == LavalinkLoadType.error)
             {
-                logger.LogInformation($"Error playing {query}");
+                logger.LogError($"Error playing {query}\nException: {result.TrackException?.Message}\nCause: {result.TrackException?.Message}");
                 await context.Channel.SendMessageAsync($"Error playing {query}");
                 return;
             }

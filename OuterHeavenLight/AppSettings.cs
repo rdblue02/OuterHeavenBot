@@ -9,8 +9,7 @@ namespace OuterHeaven.LavalinkLight
 {
     public class AppSettings
     {
-
-        public string AppLogDirectory { get; set; } = "";
+        public string? AppLogDirectoryPath { get; set; }
         public OuterHeavenBotSettings? OuterHeavenBotSettings { get; set; }
 
         public ClippieBotSettings? ClippieBotSettings { get; set; }

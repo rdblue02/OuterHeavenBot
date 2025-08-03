@@ -36,9 +36,7 @@ namespace OuterHeavenLight
                  
                 builder.Services.AddSingleton(settings);
                 builder.Services.AddLogging(x =>
-                { 
-                    var logDirectoryName = settings.AppLogDirectory ?? throw new ArgumentNullException(nameof(settings.AppLogDirectory));
- 
+                {  
                     x.AddLog4Net(); 
                     x.AddConsole();
                 });

@@ -1,4 +1,5 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using OuterHeavenLight.Constants;
 using System;
@@ -46,37 +47,40 @@ namespace OuterHeavenLight.Core
         public async Task HandleCommandAsync(string group, DiscordSocketClient client, SocketMessage message)  
         {
             try
-            { 
+            {
+                if (message == null)
+                    return;
+
                 var content = message.Content; 
-                var prefix = message?.Content?.FirstOrDefault();
+                var prefix = message.Content?.FirstOrDefault();
 
                 //ignore invalid prefix.
                 if(!prefix.HasValue || 
-                   !this.eligiblePrefixes.Contains(prefix.Value))
+                   !this.eligiblePrefixes.Contains(prefix.Value) || 
+                   message.Author.IsBot)
                 {
                     return;
                 }
                 
-                var matchingCommands = GetCommandInfoFromMessage(message!.Content, prefix.Value.ToString());
+                var matchingCommands = GetCommandInfoFromMessage(message.Content ?? "", prefix.Value.ToString());    
                 var command = matchingCommands.FirstOrDefault(x => x.Module.Name == group);
 
-                if (command != null)
-                {
-
-                    logger.LogInformation($"{client?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");
-                    var context = new SocketCommandContext(client, message as SocketUserMessage);
-
-                    await commandService.ExecuteAsync(
-                    context: context,
-                    argPos: 1,
-                    services: serviceProvider); 
-                    return;
-                } 
-
-                if (!matchingCommands.Any())
+                if(matchingCommands.Count == 0 || 
+                   command == null ||
+                  (group == CommandGroupName.Dev && message.Channel is not IPrivateChannel))
                 {
                     logger.LogError($"Invalid command {content} received by user {message.Author.Username}");
+                    return;
                 }
+ 
+                logger.LogInformation($"{client?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");
+                var context = new SocketCommandContext(client, message as SocketUserMessage);
+
+                await commandService.ExecuteAsync(
+                context: context,
+                argPos: 1,
+                services: serviceProvider); 
+
             } 
             catch (Exception e)
             {

@@ -15,22 +15,27 @@ namespace OuterHeavenBot.Test
         [TestMethod]
         public void Can_Resolve_Service_Collection()
         {
+            var testAppSettings =  new AppSettings();
             var serviceCollection = new ServiceCollection();
+           
+            //add services
             serviceCollection.AddLogging();
             serviceCollection.AddDevUtilities();
             serviceCollection.AddLava();
             serviceCollection.AddMusic();
             serviceCollection.AddClips();
-            serviceCollection.AddSingleton(new AppSettings());
-          //  serviceCollection.AddSingleton(new LavaFileCache());
-            var provider = serviceCollection.BuildServiceProvider();
+            serviceCollection.AddSingleton(testAppSettings); 
 
+            //build provider
+            var provider = serviceCollection.BuildServiceProvider();
             var musicService = provider.GetService<MusicService>();
             var clippieService = provider.GetService<ClippieService>();
-
+            var devService = provider.GetService<DevService>();
+        
+            //ensure services are built
+            Assert.IsNotNull(devService);
             Assert.IsNotNull(musicService);
-            Assert.IsNotNull(clippieService);
-
+            Assert.IsNotNull(clippieService); 
         }
     }
 }
