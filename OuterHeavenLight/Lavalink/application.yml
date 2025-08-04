@@ -18,7 +18,7 @@ server: # REST and WS server
     enabled: false # Whether to enable HTTP/2 support
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.3"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.4"
 #    - dependency: "com.github.example:example-plugin:1.0.0" # required, the coordinates of your plugin
 #      repository: "https://maven.example.com/releases" # optional, defaults to the Lavalink releases repository by default
 #      snapshot: false # optional, defaults to false, used to tell Lavalink to use the snapshot repository instead of the release repository
