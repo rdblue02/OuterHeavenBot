@@ -170,5 +170,20 @@ namespace OuterHeavenLight.Music
                 await ReplyAsync(e.Message);
             }
         }
+
+        [Command("disconnect", RunMode = RunMode.Async)]
+        [Alias("dc")]
+        public async Task Disconnect([Remainder] int? position = null)
+        {
+            try
+            { 
+                await musicService.DisconnectBot(); 
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
+            }
+        }
     }
 }

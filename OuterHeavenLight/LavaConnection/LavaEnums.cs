@@ -9,7 +9,6 @@ namespace OuterHeavenLight.LavaConnection
 {
     public enum LavalinkSearchType
     {
-
         ytsearch,
         scsearch,
         Raw
@@ -43,6 +42,4 @@ namespace OuterHeavenLight.LavaConnection
         WebSocketClosedEvent,
         Invalid
     }
-
-
 }

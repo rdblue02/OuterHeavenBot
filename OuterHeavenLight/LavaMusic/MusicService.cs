@@ -282,7 +282,21 @@ namespace OuterHeavenLight.Music
                 }
             }
         }
-
+        public async Task DisconnectBot()
+        {
+            try
+            {
+                this.ClearQueue(); 
+                await this.lava.StopPlayer();
+                await this.lava.DisconnectFromChannel();
+                await this.lava.DestroyPlayer();
+            }
+            catch (Exception ex) 
+            {
+                logger.LogError(ex.ToString());                
+            }
+           
+        }
         private async Task Lava_OnLavaTrackStartEvent(TrackStartWebsocketEvent arg)
         { 
             var title = arg.Track.info.title;
