@@ -33,7 +33,44 @@ namespace OuterHeavenLight.Music
         {
             try
             {
-                await musicService.Query(Context, argument);
+                if (string.IsNullOrEmpty(argument)) 
+                {
+                    await ReplyAsync("Invalid search");
+                    return;
+                }
+             
+                if(!argument.Contains(' '))
+                {
+                    await musicService.Query(Context, argument, null, false);
+                    return;
+                }
+
+                var parts = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries); 
+                var prefix = parts.FirstOrDefault() ?? "";
+             
+                if(MusicCommandPrefix.IsValidPrefix(prefix))
+                {
+                    argument = argument.Replace(prefix, "").Trim();
+                    await musicService.Query(Context, argument, prefix, false); 
+                }
+               
+                await musicService.Query(Context, argument, null, false);
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Error: {e}");
+                await ReplyAsync(e.Message);
+            }
+        }
+
+        [Command("playlist", RunMode = RunMode.Async)]
+        [Alias("plt")]
+        public async Task PlayList([Remainder] string argument)
+        {
+            try
+            {
+
+                await musicService.Query(Context, argument, MusicCommandPrefix.Local, true);
             }
             catch (Exception e)
             {

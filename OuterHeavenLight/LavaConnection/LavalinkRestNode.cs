@@ -1,5 +1,13 @@
-﻿using System;
+﻿using Discord;
+using Discord.Commands;
+using Microsoft.Extensions.Logging;
+using OuterHeavenLight.Constants;
+using OuterHeavenLight.Entities;
+using OuterHeavenLight.Entities.Request;
+using OuterHeavenLight.Entities.Response.Rest;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Net;
@@ -8,13 +16,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using System.Web;
-using Discord;
-using Discord.Commands;
-using Microsoft.Extensions.Logging;
-using OuterHeavenLight.Constants;
-using OuterHeavenLight.Entities;
-using OuterHeavenLight.Entities.Request;
-using OuterHeavenLight.Entities.Response.Rest;
 
 
 namespace OuterHeavenLight.LavaConnection
@@ -24,10 +25,10 @@ namespace OuterHeavenLight.LavaConnection
         private LavalinkEndpoint restEndpoint;
         private HttpClient _httpClient;
         private ILogger<LavalinkRestNode> logger;
-        public LavalinkRestNode(LavalinkEndpointProvider endpointProvider, ILogger<LavalinkRestNode> logger)
+        public LavalinkRestNode(ILogger<LavalinkRestNode> logger)
         {
             this.logger = logger;
-            restEndpoint = endpointProvider.RestEndpoint;
+            restEndpoint = LavalinkEndpoint.ToRestEndpoint;
             _httpClient = new HttpClient();
 
             prepareHttpClient();
@@ -66,167 +67,152 @@ namespace OuterHeavenLight.LavaConnection
             }
 
             return JsonSerializer.Deserialize<LavaPlayer>(json);
-
         }
 
-        public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
+        public async Task<LavaDataLoadResult> SearchForTracks(string queryRaw, LavalinkSearchType searchType, bool loadPlaylist)
         {
-            var result = new LavaDataLoadResult();
-
-            var query = AddQueryPrefix(queryRaw, searchType);
-
-            var builder = new UriBuilder(new Uri(string.Format(LavalinkRestUrl.TRACK_RESOLVE, _httpClient.BaseAddress)));
-            var queryBuilder = HttpUtility.ParseQueryString(builder.Query);
-
-            queryBuilder["identifier"] = query;
-
-            builder.Query = queryBuilder.ToString();
-            using var req = new HttpRequestMessage
+            var queryUrl = BuildSearchUrl(queryRaw, searchType);
+            using (var res = await SendMessage(queryUrl))
             {
-                Method = new HttpMethod("GET"),
-                RequestUri = new Uri(builder.ToString())
-            };
-
-            using var res = await _httpClient.SendAsync(req);
-
-            var jsonString = await (res.Content?.ReadAsStringAsync() ?? Task.FromResult(""));
-
-            if (!res.IsSuccessStatusCode)
-            {
-                logger.LogError($"Failed to resolve tracks: {res.StatusCode}");
-
-                _ = Enum.TryParse(res.StatusCode.ToString(), out HttpStatusCode code);
-                result.TrackException = new LavaTrackException()
+                if (!res.IsSuccessStatusCode)
                 {
-                    Cause = $"Received Error http status code {res.StatusCode} ({code})",
-                    Message = jsonString,
-                    Severity = "fault"
-                };
-                return result;
-            }
-
-            var json = JsonNode.Parse(jsonString);
-            if (json == null)
-            {
-                result.TrackException = new LavaTrackException()
-                {
-                    Cause = $"Unkown",
-                    Message = $"Unable to parse json content. Json:  {json ?? "null"})",
-                    Severity = "fault"
-                };
-                return result;
-            }
-
-            var loadTypeString = json["loadType"]?.GetValue<string>();
-            var validLoadType = Enum.TryParse<LavalinkLoadType>(loadTypeString, out var loadType);
-
-            if (!validLoadType)
-            {
-                result.TrackException = new LavaTrackException()
-                {
-                    Cause = $"Unkown",
-                    Message = $"Unable to parse json content Invalid load type {loadTypeString ?? "null"}.Json:  {json ?? "null"})",
-                    Severity = "fault"
-                };
-
-                return result;
-            }
-
-            result.LoadType = loadType;
-
-            if (result.LoadType == LavalinkLoadType.track)
-            {
-                var track = json.Deserialize<TrackLoaded>()?.Track;
-               
-                if (track != null)
-                {                
-                    result.LoadedTracks.Add(track);
+                    return FailResult($"Received Error http status code ({res.StatusCode})",
+                                      await (res.Content?.ReadAsStringAsync() ?? Task.FromResult("")),
+                                      $"Failed to resolve tracks: {res.StatusCode}");
                 }
-            }
-            else if (result.LoadType == LavalinkLoadType.playlist)
-            {
-                var playList = json.Deserialize<PlaylistLoaded>()?.Playlist;
-                result.LoadedTracks = playList?.Tracks?.ToList() ?? [];
-                result.PlaylistInfo = playList?.Info ?? new PlaylistInfo();
-            }
-            else if (result.LoadType == LavalinkLoadType.search)
-            {
-                result.LoadedTracks = json.Deserialize<SearchLoaded>()?.Tracks ?? [];
-            }
 
-            else if (result.LoadType == LavalinkLoadType.error)
-            {
-                result.TrackException = json.Deserialize<LoadError>()?.Exception ?? new LavaTrackException() { Cause = " Unknown", Message = $"Received and error response when loading tracks but cannot parse it. Json content {json ?? "null"})" };
-            }
-            else
-            {
-                return result;
-            }
+                var jsonString = await (res.Content?.ReadAsStringAsync() ?? Task.FromResult(""));
+                var json = JsonNode.Parse(jsonString);
 
-            return result;
+                if (json == null)
+                {
+                    return FailResult("Unkown",
+                                      $"Unable to parse json content. Json:  {json ?? "null"})",
+                                      "fault");
+                }
+
+                var loadTypeString = json["loadType"]?.GetValue<string>();
+
+                if (!Enum.TryParse<LavalinkLoadType>(loadTypeString, out var loadType))
+                {
+                    return FailResult("Unkown",
+                                      $"Unable to parse json content Invalid load type {loadTypeString ?? "null"}.Json:  {json ?? "null"})",
+                                      "fault");
+                }
+
+                return BuildLoadResult(loadType, json, loadPlaylist);
+            }
         }
-
 
         public async Task<LavaPlayer> UpdatePlayer(string guildId, string sessionId, PlayerUpdateRequest payload, bool noReplace = false)
         {
             var builder = new UriBuilder(new Uri(string.Format(LavalinkRestUrl.PLAYER, _httpClient.BaseAddress, sessionId, guildId)));
             var query = HttpUtility.ParseQueryString(builder.Query);
-            if (noReplace)
-            {
-                query["noReplace"] = "true";
-            }
+            query["noReplace"] = noReplace.ToString().ToLower();
 
             builder.Query = query.ToString();
-
-            using var req = new HttpRequestMessage
-            {
-                Method = new HttpMethod("PATCH"),
-                RequestUri = new Uri(builder.ToString())
-            };
-
             var requestJson = JsonSerializer.Serialize(payload);
 
-            logger.LogInformation($"Sending the following json to {builder.Query}\n{requestJson}");
-
-            using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-
-            req.Content = content;
-
-            using var res = await _httpClient.SendAsync(req);
-
-            var responseJson = await res.Content.ReadAsStringAsync();
-
-            logger.LogInformation($"received the following json as a response {responseJson}");
-
-            if (string.IsNullOrWhiteSpace(responseJson) || !res.IsSuccessStatusCode)
+            using (var res = await SendMessage(builder.ToString(), "PATCH", requestJson))
             {
-                throw new Exception("Failed to update player: No response");
-            }
+                var responseJson = await res.Content.ReadAsStringAsync();
 
-            return JsonSerializer.Deserialize<LavaPlayer>(responseJson) ?? throw new Exception($"Cannot deserialize player {responseJson}");
+                logger.LogInformation($"received the following json as a response {responseJson}");
+
+                if (string.IsNullOrWhiteSpace(responseJson) || !res.IsSuccessStatusCode)
+                {
+                    throw new Exception("Failed to update player: No response");
+                }
+
+                return JsonSerializer.Deserialize<LavaPlayer>(responseJson) ?? throw new Exception($"Cannot deserialize player {responseJson}");
+            }
         }
 
         internal async Task DestroyPlayer(string guildId, string sessionId)
         {
-            var builder = new UriBuilder(new Uri(string.Format(LavalinkRestUrl.PLAYER, _httpClient.BaseAddress, sessionId, guildId)));
-            var query = HttpUtility.ParseQueryString(builder.Query);
-
-            using var req = new HttpRequestMessage
+            using (var res = await SendMessage(string.Format(LavalinkRestUrl.PLAYER, _httpClient.BaseAddress, sessionId, guildId), "DELETE"))
             {
-                Method = new HttpMethod("DELETE"),
-                RequestUri = new Uri(builder.ToString())
-            };
-
-            using var res = await _httpClient.SendAsync(req);
-
-            if (!res.IsSuccessStatusCode)
-            {
-                throw new Exception($"Failed to destroy player: {res.StatusCode}");
+                if (!res.IsSuccessStatusCode)
+                {
+                    logger.LogError($"Error destroying player in guild {guildId} for session {sessionId}");
+                }
             }
         }
 
+        LavaDataLoadResult BuildLoadResult(LavalinkLoadType loadType, JsonNode json, bool loadPlaylist)
+        {
+            var result = new LavaDataLoadResult()
+            {
+                LoadType = loadType,
+                LoadedTracks = [],
+                PlaylistInfo = new PlaylistInfo(),
+                TrackException = null
+            };
 
-        private string AddQueryPrefix(string query, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
+            switch (loadType)
+            {
+                case LavalinkLoadType.track:
+                    var track = json.Deserialize<TrackLoaded>()?.Track;
+                    if (track != null)
+                    {
+                        result.LoadedTracks.Add(track);
+                    }
+                    break;
+                case LavalinkLoadType.playlist:
+
+                    var playList = json.Deserialize<PlaylistLoaded>()?.Playlist;
+                    var playListTracks = playList?.Tracks?.ToList() ?? [];
+
+                    if (!loadPlaylist &&
+                        playListTracks.Count > 0)
+                    {
+                        var selectedTrack = playListTracks[playList?.Info?.SelectedTrackIndex ?? 0];
+                        if (selectedTrack != null)
+                        {
+                            result.LoadedTracks.Add(selectedTrack);
+                        }
+                    }
+                    else
+                    {
+                        result.LoadedTracks = playListTracks.Count > 20 ? [.. playListTracks.Take(20)] : playListTracks;
+                        result.PlaylistInfo = playList?.Info ?? new PlaylistInfo();
+                    }
+                    break;
+                case LavalinkLoadType.search:
+
+                    var searchedTrack = json.Deserialize<SearchLoaded>()?.Tracks?.FirstOrDefault();
+                    if (searchedTrack != null)
+                    {
+                        result.LoadedTracks.Add(searchedTrack);
+                    }
+                    break;
+                case LavalinkLoadType.error:
+                    result.TrackException = json.Deserialize<LoadError>()?.Exception ?? 
+                                            FailResult("Unknown",
+                                            $"Received and error response when loading tracks but cannot parse it. Json content {json ?? "null"})",
+                                            "fault").TrackException; 
+                    break;
+            }
+
+            return result;
+        }
+
+        LavaDataLoadResult FailResult(string cause, string message, string severity, string? logMessage = null)
+        {
+            if (!string.IsNullOrWhiteSpace(logMessage)) logger.LogError(logMessage);
+
+            return new LavaDataLoadResult()
+            {
+                TrackException = new LavaTrackException()
+                {
+                    Cause = cause,
+                    Message = message,
+                    Severity = severity
+                }
+            };
+        }
+
+        private string BuildSearchUrl(string query, LavalinkSearchType searchType = LavalinkSearchType.ytsearch)
         {
             var prefix = searchType switch
             {
@@ -236,8 +222,36 @@ namespace OuterHeavenLight.LavaConnection
                 _ => throw new ArgumentOutOfRangeException(nameof(searchType), searchType, null)
             };
 
-            return $"{prefix}{query}";
+            query = $"{prefix}{query}";
+            var builder = new UriBuilder(new Uri(string.Format(LavalinkRestUrl.TRACK_RESOLVE, _httpClient.BaseAddress)));
+            var queryBuilder = HttpUtility.ParseQueryString(builder.Query);
+
+            queryBuilder["identifier"] = query;
+
+            builder.Query = queryBuilder.ToString();
+            return builder.ToString();
         }
 
+        async Task<HttpResponseMessage> SendMessage(string url, string method = "GET", string? jsonContent = null)
+        {
+            var req = new HttpRequestMessage
+            {
+                Method = new HttpMethod(method),
+                RequestUri = new Uri(url)
+            };
+            if (string.IsNullOrWhiteSpace(jsonContent))
+            {
+                logger.LogInformation($"Sending a message to {url}");
+            }
+            else
+            {
+                logger.LogInformation($"Sending a message to {url}\nMessage content:\n{jsonContent}");
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                req.Content = content;
+            }
+
+            var res = await _httpClient.SendAsync(req);
+            return res != null ? res : new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
     }
 }

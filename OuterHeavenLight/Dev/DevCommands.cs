@@ -1,19 +1,17 @@
-﻿using Discord.Commands;
+﻿using Discord.Commands; 
 using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Constants;
+using OuterHeavenLight.Core;
 
 namespace OuterHeavenLight.Dev
 {
     [Name(CommandGroupName.Dev)]
     public class DevCommands : ModuleBase<SocketCommandContext>
-    { 
-        private ILogger<DevCommands> logger;
+    {  
         private DevService devService;
-        public DevCommands(ILogger<DevCommands> logger,
-                           AppSettings appSettings,
+        public DevCommands(AppSettings appSettings,
                            DevService devService)
-        {
-            this.logger = logger; 
+        { 
             this.devService = devService;
         }
 
@@ -21,25 +19,16 @@ namespace OuterHeavenLight.Dev
         public async Task RequestLogs()
         {
             var result = await devService.GetLogsFromServerAsync(this.Context.User);
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                await ReplyAsync(result);
-            } 
+            await Respond(result);
         }
   
         [Command("settings", RunMode = RunMode.Async)]
         public async Task GetSettings()
         {
-            try
-            {
-                var response = await devService.GetSettingsFromServerAsync(this.Context.User);
-                await ReplyAsync(response);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex.ToString());
-                await ReplyAsync($"Error locating bot settings\n {ex.Message}");
-            }
-        } 
+            var result = await devService.GetSettingsFromServerAsync(this.Context.User);
+            await Respond(result);
+        }
+
+        private async Task Respond(CommandResult result) => await (!string.IsNullOrWhiteSpace(result.UserMessage) ? ReplyAsync(result.UserMessage) : Task.CompletedTask);
     } 
 } 

@@ -11,6 +11,7 @@ namespace OuterHeavenLight.LavaConnection
     {
         ytsearch,
         scsearch,
+        spsearch,
         Raw
     }
 

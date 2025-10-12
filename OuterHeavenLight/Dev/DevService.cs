@@ -2,6 +2,8 @@
 using Discord.WebSocket;
 using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Constants;
+using OuterHeavenLight.Core;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace OuterHeavenLight.Dev
@@ -23,100 +25,82 @@ namespace OuterHeavenLight.Dev
             this.fileSender = fileSender; 
         }
 
-        public async Task<string> GetLogsFromServerAsync(SocketUser user)
+        public async Task<CommandResult> GetLogsFromServerAsync(SocketUser user)
         {
             try
             {
-                var logFiles = ReadLogFiles();
+                var logDirectoryInfo = search.FindDirectory(BotResourceName.DefaultLogDirectory, 5, 5);
 
-                if (logFiles.Count == 0)
+                if (logDirectoryInfo == null)
                 {
-                    return "No logs found";
+                    return CommandResult.FailureResult($"Cannot find directory {BotResourceName.DefaultLogDirectory}"); 
                 }
 
-                var zipFile = this.fileSender.StageZipFile(logFiles,"logs");
+                var logsToSend = new List<FileInfo>(); 
+                var lavalog = this.search.FindFile(BotResourceName.LavalinkLogFileName, 0, 3, logDirectoryInfo.FullName);
+                var botLog = this.search.FindFile(BotResourceName.BotLogFileName, 0, 3, logDirectoryInfo.FullName);
+
+                AddFileToResult(logsToSend, lavalog);
+                AddFileToResult(logsToSend, botLog);
+
+                if (logsToSend.Count == 0)
+                {
+                    return CommandResult.FailureResult("No logs found");
+                }
+
+                var zipFile = this.fileSender.StageZipFile(logsToSend, "logs");
                 if (zipFile == null)
                 {
-                    return "Error sending log files";
+                    return CommandResult.FailureResult("Error sending log files");
                 }
 
                 await this.fileSender.SendZipFileAsync(user, zipFile);
-
-                return "File send complete";
+                return CommandResult.SuccessResult("File send complete");
             }
             catch (Exception ex)
-            {
-                logger.LogError(ex.ToString());
-                return ex.Message;
+            { 
+                return  CommandResult.FailureResult($"Error reading logs: {ex.Message}", ex);
             }
         }
 
-        public async Task<string> GetSettingsFromServerAsync(SocketUser user)
+        public async Task<CommandResult> GetSettingsFromServerAsync(SocketUser user)
         { 
             try
-            {
-                var settings = ReadSettingFiles();
+            { 
+                var settings = new List<FileInfo>();
+                var appsettingsFile = search.FindFile("appSettings.json", 0, 0);
+                var lavaSettingsFile = search.FindFile("application.yml", 0, 5); 
+
+                AddFileToResult(settings, appsettingsFile);
+                AddFileToResult(settings, lavaSettingsFile);
+
                 if (settings.Count == 0)
                 {
-                    return "Unable to find setting files";
+                    return CommandResult.FailureResult("Unable to find setting files");
                 }
 
                 var zipFile = this.fileSender.StageZipFile(settings, "botsettings");
                 if (zipFile == null)
                 {
-                    return "Error sending setting files";
+                    return CommandResult.FailureResult("Error staging setting files");
                 }
 
                 await fileSender.SendZipFileAsync(user, zipFile);
-                return "File send complete";
+                return CommandResult.SuccessResult("File send complete");
             }
             catch(Exception ex)
-            {
-                logger.LogError(ex.ToString());
-                return ex.Message;
+            { 
+                return CommandResult.FailureResult($"Error reading settings: {ex.Message}", ex);
             } 
         }
-
-        private List<FileInfo> ReadSettingFiles()
-        {
-            var appsettingsFile = search.FindFile($"{appSettings}.json", 0, 0);
-            var lavaSettings = search.FindFile("application.yml", 0, 5);
-
-            var settings = new List<FileInfo>();
-
-            AddFileToResult(settings, appsettingsFile);
-            AddFileToResult(settings, lavaSettings);
-            return settings;
-        }
-
-        private List<FileInfo> ReadLogFiles()
-        { 
-            var logDirectoryInfo = search.FindDirectory(BotResourceName.DefaultLogDirectory, 5, 5);
-
-            if (logDirectoryInfo == null)
-            {
-                logger.LogError($"Cannot find directory {BotResourceName.DefaultLogDirectory}");
-                return [];
-            }
-
-            var logsToSend = new List<FileInfo>();
-
-            var lavalog = this.search.FindFile(BotResourceName.LavalinkLogFileName, 0, 3, logDirectoryInfo.FullName);
-            var botLog = this.search.FindFile(BotResourceName.BotLogFileName, 0, 3, logDirectoryInfo.FullName);
-          
-            AddFileToResult(logsToSend, lavalog);
-            AddFileToResult(logsToSend, botLog);
-           
-            return logsToSend;
-        }
-
+         
         private void AddFileToResult(List<FileInfo> results, FileInfo? fileResult)
         {
             if (fileResult != null)
             {
-                logger.LogInformation($"Found appsettings file path {fileResult.FullName}");
+                logger.LogInformation($"Found file path {fileResult.FullName}");
                 results.Add(fileResult);
-            }
+            } 
         }
     }
 }

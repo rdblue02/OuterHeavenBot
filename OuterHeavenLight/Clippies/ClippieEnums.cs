@@ -8,11 +8,7 @@ namespace OuterHeavenLight.Clippies
 {
     public enum ClippliePlayerState
     {
-        Available,
-        Playing,
-        Stopped,
-        Connecting,
-        Disconnecting,
-        Disconnected
+        Unavailable, 
+        Available
     } 
 }

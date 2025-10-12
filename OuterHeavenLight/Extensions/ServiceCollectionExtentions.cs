@@ -18,7 +18,6 @@ namespace OuterHeavenLight.Extensions
         {
             services.AddSingleton<CommandHandler>();
             services.AddSingleton<CommandService>();
-            services.AddSingleton<LavalinkEndpointProvider>();
             services.AddSingleton<LavalinkRestNode>();
             services.AddSingleton<Lava>(); 
            

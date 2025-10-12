@@ -1,5 +1,4 @@
-﻿using Discord.Commands;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Clippies;
 using OuterHeavenLight.Dev;

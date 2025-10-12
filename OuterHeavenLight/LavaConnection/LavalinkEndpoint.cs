@@ -25,5 +25,8 @@
         public Uri ToUri() => new Uri($"http{(IsSecure ? "S" : string.Empty)}://{Host}:{Port}{Route}");
         public override string ToString() => $"http{(IsSecure ? "S" : string.Empty)}://{Host}:{Port}{Route}";
         public string ToWebSocketString() => $"ws{(IsSecure ? "s" : string.Empty)}://{Host}:{Port}{Route}";
+         
+        public static LavalinkEndpoint ToRestEndpoint => new ("localhost", 2333, "youshallnotpass", "/v4");
+        public static LavalinkEndpoint ToWebSocketEndpoint => new ("localhost", 2333, "youshallnotpass", "/v4/websocket");
     }
 }

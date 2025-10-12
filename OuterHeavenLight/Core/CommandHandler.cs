@@ -13,92 +13,82 @@ namespace OuterHeavenLight.Core
 {
     public class CommandHandler
     {
-        List<CommandInfo> commands = new List<CommandInfo>();
+        List<CommandInfo> commands = [];
         CommandService commandService;
         IServiceProvider serviceProvider;
         ILogger logger;
-        List<char> eligiblePrefixes = new List<char>() { '~','!'};
 
-        public CommandHandler(ILogger<CommandHandler> logger, 
+        Dictionary<char, List<string>> eligiblePrefixes = new() {
+            { '~', [CommandGroupName.Music, CommandGroupName.Clippies] },
+            { '!', [CommandGroupName.Dev] }
+        };
+
+        public CommandHandler(ILogger<CommandHandler> logger,
                               CommandService commandService,
-                              IServiceProvider serviceProvider) 
+                              IServiceProvider serviceProvider)
         {
             this.logger = logger;
             this.commandService = commandService;
             this.serviceProvider = serviceProvider;
         }
 
-        public async Task Initialize(List<Type> moduleTypes)  
-        { 
+        public async Task Initialize(List<Type> moduleTypes)
+        {
             foreach (var type in moduleTypes)
             {
                 var module = await commandService.AddModuleAsync(type, serviceProvider);
-                foreach (var command in module.Commands)
-                {
-                    commands.Add(command);
-                    if(command.Module.Name != CommandGroupName.Dev)
-                    { 
-                        logger.LogInformation($"Registering command {command.Name}");
-                    }
-                }
-            }         
+                commands.AddRange(module.Commands);
+            }
+
+            logger.LogInformation($"Registering commands {string.Join(Environment.NewLine, commands.Where(x => x.Module.Group != CommandGroupName.Dev).Select(x => x.Name))}");
         }
 
-        public async Task HandleCommandAsync(string group, DiscordSocketClient client, SocketMessage message)  
+        public async Task HandleCommandAsync(string group, DiscordSocketClient client, SocketMessage message)
         {
             try
             {
-                if (message == null)
-                    return;
-
-                var content = message.Content; 
-                var prefix = message.Content?.FirstOrDefault();
-
                 //ignore invalid prefix.
-                if(!prefix.HasValue || 
-                   !this.eligiblePrefixes.Contains(prefix.Value) || 
-                   message.Author.IsBot)
-                {
+                if (string.IsNullOrWhiteSpace(message?.Content) ||
+                    !this.eligiblePrefixes.ContainsKey(message.Content[0]) ||
+                    message.Author.IsBot)
                     return;
-                }
-                
-                var matchingCommands = GetCommandInfoFromMessage(message.Content ?? "", prefix.Value.ToString());    
-                var command = matchingCommands.FirstOrDefault(x => x.Module.Name == group);
 
-                if(matchingCommands.Count == 0 || 
-                   command == null ||
-                  (group == CommandGroupName.Dev && message.Channel is not IPrivateChannel))
+                var command = GetCommandInfoFromMessage(message, group);
+
+                if (command == null)
                 {
-                    logger.LogError($"Invalid command {content} received by user {message.Author.Username}");
+                    logger.LogError($"Invalid command {message.Content} received by user {message.Author.Username}");
                     return;
                 }
- 
+
                 logger.LogInformation($"{client?.GetType()?.Name} Bot command received by user {message?.Author?.Username} in channel {message?.Channel?.Name}. Processing message \n\"{message?.Content}\"");
+              
                 var context = new SocketCommandContext(client, message as SocketUserMessage);
-
-                await commandService.ExecuteAsync(
+                var commandResult = await commandService.ExecuteAsync(
                 context: context,
                 argPos: 1,
-                services: serviceProvider); 
+                services: serviceProvider);
 
-            } 
+            }
             catch (Exception e)
             {
                 logger.LogError($"Unable to proccess command message {message?.ToString()}\n {e}");
             }
         }
 
-        private List<CommandInfo> GetCommandInfoFromMessage(string messageContent, string prefix)
+        private CommandInfo? GetCommandInfoFromMessage(SocketMessage message, string group)
         {
-            if (string.IsNullOrWhiteSpace(messageContent)) return [];
+            var endOfCommand = message.Content.IndexOf(' ');
+            var endOfCommandIndex = endOfCommand > 0 ? endOfCommand : message.Content.Length;
 
-            var endOfCommand = messageContent.IndexOf(' ');
+            var commandNameOrAlias = message.Content[..(endOfCommandIndex)]
+                                            .Replace(message.Content[0], '\n')//remove the prefix
+                                            .Trim();
 
-            var content = messageContent.Substring(0, endOfCommand > 0 ? endOfCommand : messageContent.Length).Replace(prefix, "").Trim();
+            var commands = this.commands.Where(x => string.Equals(x.Name, commandNameOrAlias, StringComparison.OrdinalIgnoreCase) ||
+                                        x.Aliases.Any(x => string.Equals(x, commandNameOrAlias, StringComparison.OrdinalIgnoreCase)));
 
-            return this.commands.Where(x => x.Name.ToLower() == content.ToLower() || 
-                                            x.Aliases.Any(x => x.ToLower() == content.ToLower()))
-                                .ToList();  
+            return commands.FirstOrDefault(x => x.Module.Name == group);
         }
     }
 }
