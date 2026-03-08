@@ -34,7 +34,7 @@ namespace OuterHeavenLight.Utilities
                 {
                     var timeRemaining =  tracks[i].info.length - tracks[i].info.position; 
                     trackDuration = TimeSpan.FromMilliseconds(timeRemaining);
-                    message += $"Current - {Clean(tracks[i].info.title, 3)} - {Clean(tracks[i].info.author, 30)} - {Clean(tracks[i].info.sourceName, 20)} - {Clean(trackDuration.ToString((@"hh\:mm\:ss")), 10)}\n\n";
+                    message += $"Current - {Clean(tracks[i].info.title, 40)} - {Clean(tracks[i].info.author, 30)} - {Clean(trackDuration.ToString((@"hh\:mm\:ss")), 10)}\n";
                 }
                 else
                 { 
@@ -50,8 +50,10 @@ namespace OuterHeavenLight.Utilities
 
         private string Clean(string message, int columnWidth)
         {
-            message = message.Trim(); 
-            message = message.Length > columnWidth ? message.Substring(0, columnWidth) + "..." : message.PadRight(columnWidth + 1, ' ');
+            message = message.Trim();
+            message = message.PadLeft(Math.Max((columnWidth - message.Length) / 2, 0), ' ');
+
+            message = message.Length > columnWidth ? message.Substring(0, Math.Max(columnWidth - 3, 1)) + "..." : message.PadRight(Math.Max((columnWidth - message.Length) / 2,0), ' ');
             message = " " + message;
             return message;
         }

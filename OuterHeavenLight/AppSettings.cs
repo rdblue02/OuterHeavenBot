@@ -9,20 +9,31 @@ namespace OuterHeaven.LavalinkLight
 {
     public class AppSettings
     {
+        [JsonPropertyName("AppLogDirectoryPath")]
         public string? AppLogDirectoryPath { get; set; }
+     
+        [JsonPropertyName("OuterHeavenBotSettings")]
         public OuterHeavenBotSettings? OuterHeavenBotSettings { get; set; }
+       
+        [JsonPropertyName("ClippieBotSettings")]
         public ClippieBotSettings? ClippieBotSettings { get; set; }
     }
 
-    public class OuterHeavenBotSettings : BotSettings  
+    public class OuterHeavenBotSettings : BotSettings
     {
+        [JsonPropertyName("PlayLocalDirectory")]
         public string PlayLocalDirectory { get; set; } = "";
+
+        [JsonPropertyName("LavalinkDirectory")]
         public string LavalinkDirectory { get; set; } = "";
     }
 
     public class ClippieBotSettings : BotSettings
     {
+        [JsonPropertyName("SoundFileDirectory")]
         public string SoundFileDirectory { get; set; } = "";
+       
+        [JsonPropertyName("ExcludedSubDirectories")]
         public string[] ExcludedSubDirectories { get; set; } = [];
 
         [JsonIgnore]
@@ -31,7 +42,9 @@ namespace OuterHeaven.LavalinkLight
 
     public class BotSettings
     {
+        [JsonPropertyName("Enabled")]
         public bool Enabled { get; set; }
+        [JsonPropertyName("DiscordToken")]
         public string DiscordToken { get; set; } = "";
     }
-}
+} 

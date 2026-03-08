@@ -12,9 +12,9 @@ namespace OuterHeavenLight.Clippies
     {
        public readonly static Random ClippieRandomizer = new Random((int)DateTime.Now.Ticks);
 
-        public static byte[] ReadClippieFile(string contentName)
+        public static byte[] ReadClippieFile(string contentName, string clippieDirectory, List<string> exclusions)
         {
-            var fileDirectories = GetAudioFiles();
+            var fileDirectories = GetAudioFiles(clippieDirectory, exclusions);
             if(!fileDirectories.Any())
             {
                 return [];
@@ -46,21 +46,27 @@ namespace OuterHeavenLight.Clippies
             return string.IsNullOrEmpty(clippie) ? Array.Empty<byte>() : File.ReadAllBytes(clippie);
         }        
        
-        public static Dictionary<string, List<FileInfo>> GetAudioFiles()
-        {
-            var clippyDirectory = Directory.GetCurrentDirectory() + "\\clips";
-            if(!Directory.Exists(clippyDirectory))
+        public static Dictionary<string, List<FileInfo>> GetAudioFiles(string clippieDirectory, List<string> exclusions)
+        { 
+            if(string.IsNullOrWhiteSpace(clippieDirectory))
+            { 
+                clippieDirectory = Directory.GetCurrentDirectory() + "\\clips";
+            }
+
+            if(!Directory.Exists(clippieDirectory))
             {
-                Directory.CreateDirectory(clippyDirectory);
+                Directory.CreateDirectory(clippieDirectory);
             }
 
             var directoryFileList = new Dictionary<string, List<FileInfo>>();
-            var directories = new DirectoryInfo(clippyDirectory).GetDirectories().Where(x => !x.Name.ToLower().Contains("music"));
+            var directories = new DirectoryInfo(clippieDirectory).GetDirectories().Where(x => exclusions
+                                                                                  .All(y=> !y.Trim().Equals(x.Name, StringComparison.CurrentCultureIgnoreCase)));
             foreach (var directory in directories)
             {
                 var fileNames = directory.GetFiles().ToList();
                 directoryFileList.Add(directory.Name.ToLower(), fileNames);
             }
+
             return directoryFileList;
         }
     }

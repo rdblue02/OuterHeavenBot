@@ -2,6 +2,7 @@
 using Discord.Audio;
 using Discord.Commands; 
 using Discord.WebSocket;
+using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Constants;
 using System;
 using System.Collections.Generic;
@@ -18,11 +19,13 @@ namespace OuterHeavenLight.Clippies
     {
         ILogger logger;
         ClippieService clippieService;
-       
+        AppSettings appSettings;
         public ClippieCommands(ILogger<ClippieCommands> logger,
-                               ClippieService clippieService)
+                               ClippieService clippieService,
+                               AppSettings appSettings)
         {
             this.logger = logger;
+            this.appSettings = appSettings;
             this.clippieService = clippieService;
         }
 
@@ -47,7 +50,8 @@ namespace OuterHeavenLight.Clippies
         { 
             try
             {
-                var directories = ClippieHelpers.GetAudioFiles();
+                var directories = ClippieHelpers.GetAudioFiles(appSettings?.ClippieBotSettings?.DefaultSoundFileDirectory ?? "",
+                                                               appSettings?.ClippieBotSettings?.ExcludedSubDirectories?.ToList() ?? []);
                 StringBuilder message = new StringBuilder();
                 if (string.IsNullOrWhiteSpace(category))
                 {

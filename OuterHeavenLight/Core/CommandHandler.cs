@@ -57,7 +57,13 @@ namespace OuterHeavenLight.Core
 
                 if (command == null)
                 {
-                    logger.LogError($"Invalid command {message.Content} received by user {message.Author.Username}");
+                    //make sure this command is not intended for another group before logging as error
+                    var otherGroups = eligiblePrefixes.Values.SelectMany(x => x).Where(x=> x != group).Any(x=>GetCommandInfoFromMessage(message,x) != null);
+                    if (!otherGroups)
+                    {
+                        logger.LogError($"Invalid command {message.Content} received by user {message.Author.Username}");
+                    }
+
                     return;
                 }
 

@@ -55,7 +55,7 @@ namespace OuterHeavenLight.LavaConnection
 
             if (!res.IsSuccessStatusCode)
             {
-                logger.LogError($"Failed to resolve guild player: {res.StatusCode}");
+                logger.LogInformation($"Unable to find player for lava session {hostSessionId}");
                 return null;
             }
 

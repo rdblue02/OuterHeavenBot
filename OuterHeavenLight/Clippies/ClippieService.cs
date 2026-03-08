@@ -3,6 +3,7 @@ using Discord;
 using Discord.Audio;
 using Discord.Commands;
 using Discord.WebSocket;
+using OuterHeaven.LavalinkLight;
 using OuterHeavenLight.Constants;
 using OuterHeavenLight.Core;
 using OuterHeavenLight.Dev;
@@ -18,15 +19,16 @@ namespace OuterHeavenLight.Clippies
         CommandHandler clippieCommandHandler;
         public ClippliePlayerState clippliePlayerState { get; private set; } = ClippliePlayerState.Available;
         private object clippiePlayerLock = new object();
-
+        private AppSettings appSettings;
         public ClippieService(ILogger<ClippieService> logger,
                               ClippieDiscordClient client,
-                              CommandHandler commandHandler)
+                              CommandHandler commandHandler,
+                              AppSettings appSettings)
         {
             this.logger = logger;
             this.discordClient = client; 
             this.clippieCommandHandler = commandHandler;
-
+            this.appSettings = appSettings;
             discordClient.Ready += () =>
             {
                 this.clippliePlayerState = ClippliePlayerState.Available;
@@ -90,7 +92,7 @@ namespace OuterHeavenLight.Clippies
         {
             try
             {
-                var bytes = ClippieHelpers.ReadClippieFile(contentRequested);
+                var bytes = ClippieHelpers.ReadClippieFile(contentRequested,appSettings?.ClippieBotSettings?.SoundFileDirectory ?? "", appSettings?.ClippieBotSettings?.ExcludedSubDirectories.ToList() ?? []);
 
                 if (bytes?.Length <= 0)
                 {

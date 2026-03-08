@@ -13,12 +13,12 @@ namespace OuterHeavenLight.Entities
 
         [JsonPropertyName("sessionId")]
         public string DiscordVoiceSessionId { get; set; }
-
-        [JsonIgnore]
-        public string LavaSessionId { get; set; }
-
-        [JsonIgnore]
+      
+        [JsonPropertyName("channelId")]
         public string ChannelId { get; set; }
+        
+        [JsonIgnore]
+        public string LavaSessionId { get; set; } 
 
         [JsonIgnore]
         public string GuildId { get; set; }
@@ -35,11 +35,11 @@ namespace OuterHeavenLight.Entities
         public override string ToString()
         {
             return 
-                $"{nameof(Token)} | {Token}" +
-                $"{nameof(Endpoint)} | {Endpoint}" +
-                $"{nameof(DiscordVoiceSessionId)} | {DiscordVoiceSessionId}" +
-                $"{nameof(ChannelId)} |  {ChannelId}" +
-                $"{nameof(GuildId)} | {GuildId}";
+                $"{nameof(Token)}: {Token} | " +
+                $"{nameof(Endpoint)}: {Endpoint} | " +
+                $"{nameof(DiscordVoiceSessionId)}: {DiscordVoiceSessionId} | " +
+                $"{nameof(ChannelId)}: {ChannelId} | " +
+                $"{nameof(GuildId)}: {GuildId}";
         }
     } 
 }

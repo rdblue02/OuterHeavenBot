@@ -15,17 +15,17 @@ namespace OuterHeavenLight.Entities.Request
         public UpdatePlayerTrack? track { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        [JsonPropertyName("position")]
+        public int? position { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("endTime")]
         public int? endTime { get; set; }
-     
+        
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("volume")]
         public int? volume { get; set; }
-        
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-        [JsonPropertyName("position")]
-        public int? position { get; set; }
-       
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         [JsonPropertyName("paused")]
         public bool? paused { get; set; }

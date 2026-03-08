@@ -32,8 +32,9 @@ namespace OuterHeavenLight
                 var builder = Host.CreateApplicationBuilder(args);
                     builder.Configuration.AddEnvironmentVariables();
       
-                var settings = builder.Configuration.Get<AppSettings>() ?? throw new ArgumentNullException(nameof(AppSettings));
+                var settingsConfig = builder.Configuration.GetSection("AppSettings") ?? throw new ArgumentNullException(nameof(AppSettings));
                  
+                var settings = settingsConfig.Get<AppSettings>() ?? throw new ArgumentNullException(nameof(AppSettings));
                 builder.Services.AddSingleton(settings);
                 builder.Services.AddLogging(x =>
                 {  
@@ -41,11 +42,8 @@ namespace OuterHeavenLight
                     x.AddConsole();
                 });
 
-                ////todo - convert to options pattern
-                //var fileCache = new LavaFileCache();
-                //fileCache.Load();
 
-                //builder.Services.AddSingleton(fileCache); 
+
                 builder.Services.AddDevUtilities();
                 builder.Services.AddLava();
                 builder.Services.AddMusic();

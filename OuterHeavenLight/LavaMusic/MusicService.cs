@@ -248,10 +248,12 @@ namespace OuterHeavenLight.Music
             }
 
             var botChannel = context.Guild.CurrentUser.VoiceChannel;
-
+            
             if (botChannel == null || botChannel.Id != commandUserVoice.Id)
-            {
+            { 
                 await commandUserVoice.ConnectAsync(true, true, true, true);
+                //lava needs a moment to recognize the new connection before we can update the player
+                await Task.Delay(300);
             }
 
             var userData = new Userdata() { Data = context.Channel.Id.ToString() };
